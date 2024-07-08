@@ -1,0 +1,66 @@
+{
+  "title": "Fewatsu",
+  "id": "main",
+  "data": [
+    {
+      "type": "title",
+      "text": "Fewatsu"
+    },
+    "Fewatsu is a simple electronic manual library for *Playdate*.",
+    "Example elements:",
+    {
+      "type": "heading",
+      "text": "Heading"
+    },
+    {
+      "type": "subheading",
+      "text": "Subheading"
+    },
+    "Left aligned text",
+    {
+      "type": "text",
+      "text": "Center aligned text",
+      "alignment": "center"
+    },
+    {
+      "type": "text",
+      "text": "Right aligned text",
+      "alignment": "right"
+    },
+    {
+      "type": "orderedlist",
+      "items": [
+        "ordered",
+        "list",
+        "item 3",
+        "item 4"
+      ]
+    },
+    {
+      "type": "unorderedlist",
+      "items": [
+        "unordered",
+        "list",
+        "item 3",
+        "item 4"
+      ]
+    },
+    {
+      "type": "quote",
+      "text": "quote box"
+    },
+    "image 1x",
+    {
+      "type": "image",
+      "source": "manual/example",
+      "x": 0
+    },
+    "image 0.5x",
+    {
+      "type": "image",
+      "source": "manual/example",
+      "scale": 0.5,
+      "x": 0
+    }
+  ]
+}
