@@ -49,6 +49,21 @@
       "type": "quote",
       "text": "quote box"
     },
+    {
+      "type": "link",
+      "text": "link to top",
+      "section": "#top"
+    },
+    {
+      "type": "link",
+      "text": "link to bottom",
+      "section": "#bottom"
+    },
+    {
+      "type": "link",
+      "text": "link to 'Heading' heading",
+      "section": "heading"
+    },
     "image 1x",
     {
       "type": "image",
@@ -61,6 +76,9 @@
       "source": "manual/example",
       "scale": 0.5,
       "x": 0
+    },
+    {
+      "type": "break"
     }
   ]
 }

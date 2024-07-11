@@ -15,9 +15,21 @@ class("Fewatsu").extends()
 
 function Fewatsu:init()
   self.font = gfx.getSystemFont()
+  self.headingFont = gfx.font.new("lib/fewatsu/fnt/Sasser-Slab")
+  self.boldHeadingFont = gfx.font.new("lib/fewatsu/fnt/Sasser-Slab-Bold")
   self.boldFont = gfx.getSystemFont(gfx.font.kVariantBold)
   self.italicFont = gfx.getSystemFont(gfx.font.kVariantItalic)
   self.titleFont = gfx.font.new("lib/fewatsu/fnt/Asheville-Sans-24-Light")
+  self.underlineFont = gfx.font.new("lib/fewatsu/fnt/Asheville-Sans-14-Light-Underlined")
+
+  self.linkXs = {}
+  self.linkYs = {}
+  self.linkWidths = {}
+  self.linkLocations = {}
+
+  self.selectedLink = 0
+
+  self.headerYs = {}
 
   self.offset = 0
 
@@ -43,6 +55,18 @@ function Fewatsu:hide()
 end
 
 function Fewatsu:load(json)
+  self.linkXs = {}
+  self.linkYs = {}
+  self.linkWidths = {}
+  self.linkLocations = {}
+
+  self.selectedLink = 0
+
+  self.headerYs = {}
+
+  self.offset = 0
+
+
   local currentY = 0
   local elements = json["data"]
   local elementYs = {}
@@ -67,27 +91,33 @@ function Fewatsu:load(json)
 
       table.insert(textHeights, texth)
 
+      self.headerYs[string.lower(element["text"])] = currentY
+
       if not element["y"] then
         currentY += texth + 10
       end
     elseif elemType == "heading" then
-      local textw, texth = gfx.getTextSizeForMaxWidth("*" .. element["text"] .. "*", FEWATSU_WIDTH)
+      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"], FEWATSU_WIDTH, nil, self.boldHeadingFont)
 
       table.insert(textHeights, texth)
+
+      self.headerYs[string.lower(element["text"])] = currentY
 
       if not element["y"] then
         currentY += texth + 10
       end
     elseif elemType == "subheading" then
-      local textw, texth = gfx.getTextSizeForMaxWidth("*" .. element["text"] .. "*", FEWATSU_WIDTH)
+      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"], FEWATSU_WIDTH, nil, self.headingFont)
       
       table.insert(textHeights, texth)
+
+      self.headerYs[string.lower(element["text"])] = currentY
 
       if not element["y"] then
         currentY += texth + 10
       end
     elseif elemType == "text" then
-      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"], FEWATSU_WIDTH)
+      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"], FEWATSU_WIDTH, nil, self.font)
 
       table.insert(textHeights, texth)
 
@@ -118,7 +148,7 @@ function Fewatsu:load(json)
 
       currentY += texth + 10
     elseif elemType == "quote" then
-      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"], FEWATSU_WIDTH)
+      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"], FEWATSU_WIDTH, nil, self.font)
 
       table.insert(textHeights, texth)
 
@@ -132,14 +162,36 @@ function Fewatsu:load(json)
       end
 
       if element["yscale"] then
-        scale = element["yscale"]
+        yscale = element["yscale"]
       end
 
       local img = gfx.image.new(imgpath):scaledImage(scale, yscale)
 
       if img ~= nil then
-        currentY += img.height + 20
+        currentY += img.height * scale + 20
       end
+    elseif elemType == "link" then
+      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"], FEWATSU_WIDTH, nil, self.boldFont)
+
+      table.insert(textHeights, texth)
+
+      table.insert(self.linkXs, FEWATSU_X - 2) -- TODO: allow custom x and y positions
+      table.insert(self.linkYs, currentY - 2)
+      table.insert(self.linkWidths, textw + 4)
+
+      if element["page"] then
+        element["page"] = string.lower(element["page"])
+      end
+
+      if element["section"] then
+        element["section"] = string.lower(element["section"])
+      end
+
+      table.insert(self.linkLocations, {element["page"], element["section"]})
+
+      currentY += texth + 10
+    elseif elemType == "break" then
+      currentY += 30
     end
   end
 
@@ -150,7 +202,7 @@ function Fewatsu:load(json)
   gfx.pushContext(self.image)
   gfx.clear()
 
-  for i, element in ipairs(elements) do -- draw
+  for elementI, element in ipairs(elements) do -- draw
     elemType = element["type"]
     currentElementY = table.remove(elementYs, 1)
 
@@ -181,13 +233,13 @@ function Fewatsu:load(json)
     if elemType == "title" then
       gfx.drawTextInRect(element["text"], FEWATSU_X, currentElementY, FEWATSU_WIDTH, table.remove(textHeights, 1), nil, nil, element["alignment"], self.titleFont)
     elseif elemType == "heading" then
-      gfx.drawTextInRect("*" .. element["text"] .. "*", FEWATSU_X, currentElementY, FEWATSU_WIDTH, table.remove(textHeights, 1), nil, nil, element["alignment"])
+      gfx.drawTextInRect(element["text"], FEWATSU_X, currentElementY, FEWATSU_WIDTH, table.remove(textHeights, 1), nil, nil, element["alignment"], self.boldHeadingFont)
     elseif elemType == "subheading" then
-      gfx.drawTextInRect("*" .. element["text"] .. "*", FEWATSU_X, currentElementY, FEWATSU_WIDTH, table.remove(textHeights, 1), nil, nil, element["alignment"])
+      gfx.drawTextInRect(element["text"], FEWATSU_X, currentElementY, FEWATSU_WIDTH, table.remove(textHeights, 1), nil, nil, element["alignment"], self.headingFont)
     elseif elemType == "text" then
-      gfx.drawTextInRect(element["text"], FEWATSU_X, currentElementY, FEWATSU_WIDTH, table.remove(textHeights, 1), nil, nil, element["alignment"])
+      gfx.drawTextInRect(element["text"], FEWATSU_X, currentElementY, FEWATSU_WIDTH, table.remove(textHeights, 1), nil, nil, element["alignment"], self.font)
     elseif elemType == "orderedlist" or elemType == "unorderedlist" then
-      gfx.drawTextInRect(table.remove(processedLists, 1), FEWATSU_X + FEWATSU_LISTINDENT, currentElementY, FEWATSU_WIDTH - FEWATSU_LISTINDENT, table.remove(textHeights, 1))
+      gfx.drawTextInRect(table.remove(processedLists, 1), FEWATSU_X + FEWATSU_LISTINDENT, currentElementY, FEWATSU_WIDTH - FEWATSU_LISTINDENT, table.remove(textHeights, 1), nil, nil, nil, self.font)
     elseif elemType == "quote" then
       local radius = 4
       local rect = pd.geometry.rect.new(40, currentElementY + 5, 320, table.remove(textHeights, 1) + 4)
@@ -227,6 +279,10 @@ function Fewatsu:load(json)
 
         img:draw(x, currentElementY)
       end
+    elseif elemType == "link" then
+      gfx.drawTextInRect(element["text"], FEWATSU_X, currentElementY, FEWATSU_WIDTH, table.remove(textHeights, 1), nil, nil, element["alignment"], self.boldFont)
+    elseif elemType == "break" then
+      gfx.drawLine(FEWATSU_X + 20, currentElementY, FEWATSU_WIDTH - 20, currentElementY)
     end
   end
 
@@ -262,5 +318,32 @@ function Fewatsu:update()
 
   self.image:draw(0, 0 - self.offset)
 
+  self.selectedLink = 0
+
+  for i = #self.linkYs, 1, -1 do
+    local v = self.linkYs[i]
+
+    if v - self.offset < 120 and v - self.offset > -120 then
+      gfx.drawRoundRect(self.linkXs[i], v - self.offset, self.linkWidths[i], 22, 2)
+      self.selectedLink = i
+      break
+    end
+  end
+
+  if pd.buttonJustPressed("a") then
+    local location = self.linkLocations[self.selectedLink]
+
+    if location[2] ~= nil then
+      if location[2] == "#top" then
+        self.offset = 0
+      elseif location[2] == "#bottom" then
+        self.offset = self.image.height
+      else
+        self.offset = self.headerYs[location[2]]
+      end
+    end
+  end
+
   -- pd.drawFPS(380, 220)
 end
+
