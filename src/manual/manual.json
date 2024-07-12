@@ -64,6 +64,11 @@
       "text": "link to 'Heading' heading",
       "section": "heading"
     },
+    {
+      "type": "link",
+      "text": "link to another page",
+      "page": "page2"
+    },
     "image 1x",
     {
       "type": "image",
