@@ -15,6 +15,7 @@ function imageViewer.open(image, caption)
   imageViewer.scale = 1
   
   imageViewer.image = image
+  imageViewer.originalImage = image
 
   if caption == nil then
     imageViewer.caption = ""
@@ -44,7 +45,7 @@ function imageViewer.update()
     imageViewer.x += 5
   end
 
-  imageViewer.image:scaledImage(imageViewer.scale):drawCentered(imageViewer.x, imageViewer.y)
+  imageViewer.image:drawCentered(imageViewer.x, imageViewer.y)
 
   if not imageViewer.hideUI then
     gfx.drawText(imageViewer.caption, 0, 0)
@@ -62,14 +63,32 @@ function imageViewer.BButtonDown()
 end
 
 function imageViewer.cranked(chg, accelChg)
+  local originalScale = imageViewer.scale
   imageViewer.scale += chg / 360
   
   if imageViewer.scale < 0 then
     imageViewer.scale = 0
+  elseif imageViewer.scale > 2 then
+    imageViewer.scale = 2
   end
+
+  if imageViewer.scale ~= originalScale then
+    imageViewer.image = imageViewer.originalImage:scaledImage(imageViewer.scale)
+  end
+end
+
+function imageViewer.crankDocked()
+  imageViewer.scale = 1
+  imageViewer.x = 200
+  imageViewer.y = 120
+
+  imageViewer.image = imageViewer.originalImage
 end
 
 function imageViewer.close()
   pd.update = imageViewer.oldUpdate
   pd.inputHandlers.pop()
+
+  imageViewer.image = nil
+  imageViewer.originalImage = nil
 end
