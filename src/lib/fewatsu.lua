@@ -7,6 +7,75 @@ import "CoreLibs/object"
 local pd <const> = playdate
 local gfx <const> = playdate.graphics
 
+-- TODO: split this up into another file probably
+local imageViewer = {}
+imageViewer.hideUI = false
+
+function imageViewer.open(image, caption)
+  imageViewer.x = 200
+  imageViewer.y = 120
+  imageViewer.scale = 1
+  
+  imageViewer.image = image
+
+  if caption == nil then
+    imageViewer.caption = ""
+  else
+    imageViewer.caption = caption
+  end
+
+  pd.inputHandlers.push(imageViewer, true)
+  imageViewer.oldUpdate = pd.update
+  pd.update = imageViewer.update
+
+  gfx.setImageDrawMode(gfx.kDrawModeNXOR)
+end
+
+function imageViewer.update()
+  gfx.clear()
+
+  if pd.buttonIsPressed("up") then
+    imageViewer.y -= 5
+  elseif pd.buttonIsPressed("down") then
+    imageViewer.y += 5
+  end
+  
+  if pd.buttonIsPressed("left") then
+    imageViewer.x -= 5
+  elseif pd.buttonIsPressed("right") then
+    imageViewer.x += 5
+  end
+
+  imageViewer.image:scaledImage(imageViewer.scale):drawCentered(imageViewer.x, imageViewer.y)
+
+  if not imageViewer.hideUI then
+    gfx.drawText(imageViewer.caption, 0, 0)
+    gfx.drawTextAligned("Ⓐ = toggle UI, 🎣 = scale, Ⓑ = exit", 400, 220, kTextAlignment.right)
+    gfx.drawText(math.round(imageViewer.scale, 2) .. "x", 0, 220)
+  end
+end
+
+function imageViewer.AButtonDown()
+  imageViewer.hideUI = not imageViewer.hideUI
+end
+
+function imageViewer.BButtonDown()
+  imageViewer.close()
+end
+
+function imageViewer.cranked(chg, accelChg)
+  imageViewer.scale += chg / 360
+  
+  if imageViewer.scale < 0 then
+    imageViewer.scale = 0
+  end
+end
+
+function imageViewer.close()
+  pd.update = imageViewer.oldUpdate
+  pd.inputHandlers.pop()
+end
+
 local FEWATSU_X = 2
 local FEWATSU_WIDTH = 396
 local FEWATSU_LISTINDENT = 20
@@ -27,11 +96,13 @@ function Fewatsu:init()
   self.linkWidths = {}
   self.linkLocations = {}
 
-  self.selectedLink = 0
+  self.selectedObject = 0
 
   self.headerYs = {}
 
   self.offset = 0
+
+  self.elements = {}
 
   self:updateText()
 end
@@ -60,11 +131,20 @@ function Fewatsu:load(json)
   self.linkWidths = {}
   self.linkLocations = {}
 
+  self.imgXs = {}
+  self.imgYs = {}
+  self.imgWidths = {}
+  self.imgHeights = {}
+  self.imgPaths = {}
+  self.imgCaptions = {}
+
   self.selectedLink = 0
 
   self.headerYs = {}
 
   self.offset = 0
+
+  self.elements = {}
 
 
   local currentY = 0
@@ -81,6 +161,8 @@ function Fewatsu:load(json)
       elements[i].text = element
     end
   end
+
+  self.elements = elements
 
   for i, element in ipairs(elements) do
     table.insert(elementYs, currentY)
@@ -117,7 +199,7 @@ function Fewatsu:load(json)
         currentY += texth + 10
       end
     elseif elemType == "text" then
-      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"], FEWATSU_WIDTH, nil, self.font)
+      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"], FEWATSU_WIDTH)
 
       table.insert(textHeights, texth)
 
@@ -148,7 +230,7 @@ function Fewatsu:load(json)
 
       currentY += texth + 10
     elseif elemType == "quote" then
-      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"], FEWATSU_WIDTH, nil, self.font)
+      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"], FEWATSU_WIDTH)
 
       table.insert(textHeights, texth)
 
@@ -200,6 +282,11 @@ function Fewatsu:load(json)
   self.image = gfx.image.new(400, currentY + 10)
 
   gfx.pushContext(self.image)
+
+  gfx.setFont(self.font, gfx.font.kVariantNormal)
+  gfx.setFont(self.boldFont, gfx.font.kVariantBold)
+  gfx.setFont(self.italicFont, gfx.font.kVariantItalic)
+
   gfx.clear()
 
   for elementI, element in ipairs(elements) do -- draw
@@ -237,9 +324,9 @@ function Fewatsu:load(json)
     elseif elemType == "subheading" then
       gfx.drawTextInRect(element["text"], FEWATSU_X, currentElementY, FEWATSU_WIDTH, table.remove(textHeights, 1), nil, nil, element["alignment"], self.headingFont)
     elseif elemType == "text" then
-      gfx.drawTextInRect(element["text"], FEWATSU_X, currentElementY, FEWATSU_WIDTH, table.remove(textHeights, 1), nil, nil, element["alignment"], self.font)
+      gfx.drawTextInRect(element["text"], FEWATSU_X, currentElementY, FEWATSU_WIDTH, table.remove(textHeights, 1), nil, nil, element["alignment"])
     elseif elemType == "orderedlist" or elemType == "unorderedlist" then
-      gfx.drawTextInRect(table.remove(processedLists, 1), FEWATSU_X + FEWATSU_LISTINDENT, currentElementY, FEWATSU_WIDTH - FEWATSU_LISTINDENT, table.remove(textHeights, 1), nil, nil, nil, self.font)
+      gfx.drawTextInRect(table.remove(processedLists, 1), FEWATSU_X + FEWATSU_LISTINDENT, currentElementY, FEWATSU_WIDTH - FEWATSU_LISTINDENT, table.remove(textHeights, 1))
     elseif elemType == "quote" then
       local radius = 4
       local rect = pd.geometry.rect.new(40, currentElementY + 5, 320, table.remove(textHeights, 1) + 4)
@@ -279,10 +366,19 @@ function Fewatsu:load(json)
 
         img:draw(x, currentElementY)
       end
+
+      table.insert(self.imgXs, x)
+      table.insert(self.imgYs, currentElementY)
+      table.insert(self.imgWidths, img.width)
+      table.insert(self.imgHeights, img.height)
+      table.insert(self.imgPaths, imgpath)
+      table.insert(self.imgCaptions, element["caption"])
     elseif elemType == "link" then
       gfx.drawTextInRect(element["text"], FEWATSU_X, currentElementY, FEWATSU_WIDTH, table.remove(textHeights, 1), nil, nil, element["alignment"], self.boldFont)
     elseif elemType == "break" then
-      gfx.drawLine(FEWATSU_X + 20, currentElementY, FEWATSU_WIDTH - 20, currentElementY)
+      if element["visible"] ~= false then
+        gfx.drawLine(FEWATSU_X + 20, currentElementY, FEWATSU_WIDTH - 20, currentElementY)
+      end
     end
   end
 
@@ -296,6 +392,7 @@ function Fewatsu:updateText()
 end
 
 function Fewatsu:update()
+  local selectableObjects = {}
   gfx.clear()
 
   if self.image.height >= 240 then
@@ -318,32 +415,94 @@ function Fewatsu:update()
 
   self.image:draw(0, 0 - self.offset)
 
-  self.selectedLink = 0
+  self.selectedObject = nil
 
-  for i = #self.linkYs, 1, -1 do
-    local v = self.linkYs[i]
-
-    if v - self.offset < 120 and v - self.offset > -120 then
-      gfx.drawRoundRect(self.linkXs[i], v - self.offset, self.linkWidths[i], 22, 2)
-      self.selectedLink = i
-      break
+  for i, v in ipairs(self.linkYs) do
+    if v - self.offset < 120 and v - self.offset > -240 then
+      table.insert(selectableObjects, {
+        type = "link",
+        i = i,
+        y = v,
+        location = self.linkLocations[i]
+      })
     end
   end
 
-  if pd.buttonJustPressed("a") then
-    local location = self.linkLocations[self.selectedLink]
+  for i, v in ipairs(self.imgYs) do
+    if v - self.offset < 120 and v - self.offset > -240 then
+      table.insert(selectableObjects, {
+        type = "image",
+        i = i,
+        y = v,
+        path = self.imgPaths[i],
+        caption = self.imgCaptions[i]
+      })
+    end
+  end
 
-    if location[2] ~= nil then
-      if location[2] == "#top" then
-        self.offset = 0
-      elseif location[2] == "#bottom" then
-        self.offset = self.image.height
-      else
-        self.offset = self.headerYs[location[2]]
+  table.sort(selectableObjects, function (a, b)
+    return a["y"] < b["y"]
+  end)
+
+  if #selectableObjects ~= 0 then
+    local closest = selectableObjects[1]
+
+    for i, v in pairs(selectableObjects) do
+      if math.abs(v["y"] - self.offset - 120) < closest["y"] then
+        closest = v
+      end
+    end
+
+    if closest["type"] == "link" then
+      gfx.drawRoundRect(self.linkXs[closest["i"]], closest["y"] - self.offset, self.linkWidths[closest["i"]], 22, 2)
+    elseif closest["type"] == "image" then
+      local index = closest["i"]
+      gfx.setLineWidth(3)
+      gfx.setColor(gfx.kColorXOR)
+      gfx.drawRect(self.imgXs[index], self.imgYs[index] - self.offset, self.imgWidths[index], self.imgHeights[index])
+      gfx.setColor(gfx.kColorBlack)
+      gfx.setLineWidth(1)
+    end
+
+    self.selectedObject = closest
+  end
+
+  -- for i = #self.linkYs, 1, -1 do
+  --   local v = self.linkYs[i]
+
+  --   if v - self.offset < 120 and v - self.offset > -120 then
+  --     self.selectedLink = i
+  --     break
+  --   end
+  -- end
+
+  if pd.buttonJustPressed("a") then
+    if self.selectedObject ~= nil then
+      local obj = self.selectedObject
+
+      if obj["type"] == "link" then
+        local location = obj["location"]
+
+        if location[2] ~= nil then
+          if location[2] == "#top" then
+            self.offset = 0
+          elseif location[2] == "#bottom" then
+            self.offset = self.image.height
+          else
+            if self.image.height > 240 then
+              self.offset = self.headerYs[location[2]]
+
+              if self.offset > self.image.height - 240 then
+                self.offset = self.image.height - 240
+              end
+            end
+          end
+        end
+      elseif obj["type"] == "image" then
+        imageViewer.open(gfx.image.new(obj["path"]), obj["caption"])
       end
     end
   end
 
   -- pd.drawFPS(380, 220)
 end
-

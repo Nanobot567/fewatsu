@@ -68,6 +68,7 @@
     {
       "type": "image",
       "source": "manual/example",
+      "caption": "here is an example caption.",
       "x": 0
     },
     "image 0.5x",
