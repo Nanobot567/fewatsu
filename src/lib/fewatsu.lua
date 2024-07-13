@@ -1,18 +1,33 @@
 -- fewatsu lib by nanobot567
 
-import "fewatsu/funcs"
-import "fewatsu/imageViewer"
-
 import "CoreLibs/animator"
 import "CoreLibs/object"
 import "CoreLibs/timer"
+import "CoreLibs/ui"
+
+import "fewatsu/funcs"
+import "fewatsu/imageViewer"
+import "fewatsu/menu"
 
 local pd <const> = playdate
 local gfx <const> = playdate.graphics
 
-local FEWATSU_X = 2
-local FEWATSU_WIDTH = 396
+local FEWATSU_X = 0
+local FEWATSU_WIDTH = 400
 local FEWATSU_LISTINDENT = 20
+
+local FEWATSU_DEFAULT_DATA = {
+  title = "Fewatsu",
+  id = "main",
+  data = {
+    {
+      type = "title",
+      text = "Fewatsu",
+    },
+    "Fewatsu is a simple electronic manual library for *Playdate*.",
+    "If you are seeing this, then nothing has been loaded into Fewatsu yet! Check that your code is calling either a *fewatsu:load()* or *fewatsu:loadFile()*. If you're confused, check out the documentation online!"
+  }
+}
 
 class("Fewatsu").extends()
 
@@ -29,14 +44,29 @@ function Fewatsu:init()
 
   self.offset = 0
 
-  self.cwd = "manual/" -- TODO: add way to change
-
   self.offsetAnimator = nil -- TODO: add a way to create a custom animator and stuff
   self.animatorEaseTime = 350
 
+  self.menuWidth = 120
+
+  self.menuAnimator = gfx.animator.new(0, self.menuWidth, self.menuWidth)
+  self.menuAnimatorEaseTime = 350
+
   self.inputDelayTimer = nil
+  
+  self.leftPadding = 2
+  self.rightPadding = 2
+
+  self.quoteBoxPadding = 20
+
+  self.titlesToPaths = {}
+
+  self.title = ""
+  self.path = ""
 
   self.elements = {}
+
+  self:load(FEWATSU_DEFAULT_DATA)
 end
 
 -- show function. this should push the handler
@@ -61,6 +91,21 @@ end
 
 function Fewatsu:loadFile(file)
   self:load(json.decodeFile(file))
+end
+
+
+-- sets the current working directory
+function Fewatsu:setDirectory(dir)
+  self.titlesToPaths = {}
+  self.cwd = dir
+
+  for i, v in ipairs(pd.file.listFiles(self.cwd)) do
+    if string.sub(v, #v - 4) == ".json" then
+      local fileData = json.decodeFile(self.cwd .. v)
+
+      self.titlesToPaths[fileData["title"]] = self.cwd .. v
+    end
+  end
 end
 
 function Fewatsu:load(json)
@@ -92,6 +137,8 @@ function Fewatsu:load(json)
   local processedLists = {}
   local elemType = ""
 
+  self.title = json["title"]
+
   for i, element in ipairs(elements) do -- preprocessing for string elements
     if type(element) == "string" then
       elements[i] = {}
@@ -118,7 +165,7 @@ function Fewatsu:load(json)
     end
 
     if elemType == "title" then
-      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"], FEWATSU_WIDTH, nil, self.titleFont)
+      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"], FEWATSU_WIDTH - (self.rightPadding + self.leftPadding), nil, self.titleFont)
 
       table.insert(textHeights, texth)
 
@@ -128,7 +175,7 @@ function Fewatsu:load(json)
         currentY += texth + 10
       end
     elseif elemType == "heading" then
-      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"], FEWATSU_WIDTH, nil, self.boldHeadingFont)
+      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"], FEWATSU_WIDTH - (self.rightPadding + self.leftPadding), nil, self.boldHeadingFont)
 
       table.insert(textHeights, texth)
 
@@ -138,7 +185,7 @@ function Fewatsu:load(json)
         currentY += texth + 10
       end
     elseif elemType == "subheading" then
-      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"], FEWATSU_WIDTH, nil, self.headingFont)
+      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"], FEWATSU_WIDTH - (self.rightPadding + self.leftPadding), nil, self.headingFont)
 
       table.insert(textHeights, texth)
 
@@ -148,7 +195,7 @@ function Fewatsu:load(json)
         currentY += texth + 10
       end
     elseif elemType == "text" then
-      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"], FEWATSU_WIDTH)
+      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"], FEWATSU_WIDTH - (self.rightPadding + self.leftPadding))
 
       table.insert(textHeights, texth)
 
@@ -173,13 +220,13 @@ function Fewatsu:load(json)
 
       table.insert(processedLists, text)
 
-      local textw, texth = gfx.getTextSizeForMaxWidth(text, FEWATSU_WIDTH - FEWATSU_LISTINDENT) -- indent
+      local textw, texth = gfx.getTextSizeForMaxWidth(text, FEWATSU_WIDTH - FEWATSU_LISTINDENT - (self.rightPadding + self.leftPadding)) -- indent
 
       table.insert(textHeights, texth)
 
       currentY += texth + 10
     elseif elemType == "quote" then
-      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"], FEWATSU_WIDTH)
+      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"], FEWATSU_WIDTH - (self.quoteBoxPadding * 2) - (self.rightPadding + self.leftPadding))
 
       table.insert(textHeights, texth)
 
@@ -208,11 +255,11 @@ function Fewatsu:load(json)
         currentY += img.height * scale + 20
       end
     elseif elemType == "link" then
-      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"], FEWATSU_WIDTH, nil, self.linkFont)
+      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"], FEWATSU_WIDTH - (self.rightPadding + self.leftPadding), nil, self.linkFont)
 
       table.insert(textHeights, texth)
 
-      table.insert(self.linkXs, FEWATSU_X - 2) -- TODO: allow custom x and y positions
+      table.insert(self.linkXs, (FEWATSU_X + self.leftPadding - 2)) -- TODO: allow custom x and y positions
       table.insert(self.linkYs, currentY - 2)
       table.insert(self.linkWidths, textw + 4)
 
@@ -248,16 +295,24 @@ function Fewatsu:load(json)
     elemType = element["type"]
     currentElementY = table.remove(elementYs, 1)
 
-    if elemType == "title" or elemType == "heading" or elemType == "subheading" or elemType == "text" then
+    if elemType == "title" or elemType == "heading" or elemType == "subheading" or elemType == "text" or elemType == "link" then
       if element["x"] == nil then
-        element["x"] = FEWATSU_X
-      elseif element["y"] == nil then
+        element["x"] = FEWATSU_X + self.leftPadding
+      end
+
+      if element["y"] == nil then
         element["y"] = currentElementY
-      elseif element["width"] == nil then
-        element["width"] = FEWATSU_WIDTH
-      elseif element["height"] == nil then
-        element["height"] = table.remove(textHeights, 1)
-      elseif element["alignment"] == nil then
+      end
+
+      if element["width"] == nil then
+        element["width"] = FEWATSU_WIDTH - self.rightPadding - self.leftPadding
+      end
+
+      -- if element["height"] == nil then
+      --   element["height"] = table.remove(textHeights, 1)
+      -- end
+
+      if element["alignment"] == nil then
         element["alignment"] = kTextAlignment.left
       end
 
@@ -273,23 +328,24 @@ function Fewatsu:load(json)
     end
 
     if elemType == "title" then
-      gfx.drawTextInRect(element["text"], FEWATSU_X, currentElementY, FEWATSU_WIDTH, table.remove(textHeights, 1), nil,
+      gfx.drawTextInRect(element["text"], element["x"], currentElementY, element["width"], table.remove(textHeights, 1), nil,
         nil, element["alignment"], self.titleFont)
     elseif elemType == "heading" then
-      gfx.drawTextInRect(element["text"], FEWATSU_X, currentElementY, FEWATSU_WIDTH, table.remove(textHeights, 1), nil,
+      gfx.drawTextInRect(element["text"], element["x"], currentElementY, element["width"], table.remove(textHeights, 1), nil,
         nil, element["alignment"], self.boldHeadingFont)
     elseif elemType == "subheading" then
-      gfx.drawTextInRect(element["text"], FEWATSU_X, currentElementY, FEWATSU_WIDTH, table.remove(textHeights, 1), nil,
+      gfx.drawTextInRect(element["text"], element["x"], currentElementY, element["width"], table.remove(textHeights, 1), nil,
         nil, element["alignment"], self.headingFont)
     elseif elemType == "text" then
-      gfx.drawTextInRect(element["text"], FEWATSU_X, currentElementY, FEWATSU_WIDTH, table.remove(textHeights, 1), nil,
+      gfx.drawTextInRect(element["text"], element["x"], currentElementY, element["width"], table.remove(textHeights, 1), nil,
         nil, element["alignment"])
     elseif elemType == "orderedlist" or elemType == "unorderedlist" then
-      gfx.drawTextInRect(table.remove(processedLists, 1), FEWATSU_X + FEWATSU_LISTINDENT, currentElementY,
-        FEWATSU_WIDTH - FEWATSU_LISTINDENT, table.remove(textHeights, 1))
+      gfx.drawTextInRect(table.remove(processedLists, 1), self.leftPadding + FEWATSU_LISTINDENT, currentElementY,
+        FEWATSU_WIDTH - FEWATSU_LISTINDENT - self.rightPadding - self.leftPadding, table.remove(textHeights, 1))
     elseif elemType == "quote" then
+      local textHeight = table.remove(textHeights, 1)
       local radius = 4
-      local rect = pd.geometry.rect.new(40, currentElementY + 5, 320, table.remove(textHeights, 1) + 4)
+      local rect = pd.geometry.rect.new(self.leftPadding + self.quoteBoxPadding, currentElementY + 5, FEWATSU_WIDTH - (self.quoteBoxPadding * 2) - (self.leftPadding + self.rightPadding), textHeight + 4)
 
       gfx.drawRoundRect(rect, radius)
 
@@ -338,11 +394,11 @@ function Fewatsu:load(json)
       table.insert(self.imgPaths, imgpath)
       table.insert(self.imgCaptions, element["caption"])
     elseif elemType == "link" then
-      gfx.drawTextInRect(element["text"], FEWATSU_X, currentElementY, FEWATSU_WIDTH, table.remove(textHeights, 1), nil,
+      gfx.drawTextInRect(element["text"], element["x"], currentElementY, element["width"], table.remove(textHeights, 1), nil,
         nil, element["alignment"], self.linkFont)
     elseif elemType == "break" then
       if element["visible"] ~= false then
-        gfx.drawLine(FEWATSU_X + 20, currentElementY, FEWATSU_WIDTH - 20, currentElementY)
+        gfx.drawLine(FEWATSU_X + self.leftPadding + 20, currentElementY, FEWATSU_WIDTH - self.rightPadding - 20, currentElementY)
       end
     end
   end
@@ -380,7 +436,7 @@ function Fewatsu:update()
     if pd.buttonJustPressed("a") then
       local oldOffset = self.offset
 
-      if self.selectedObject ~= nil then
+      if self.selectedObject ~= nil and self.selectedObject ~= 0 then
         local obj = self.selectedObject
 
         if obj["type"] == "link" then
@@ -436,7 +492,24 @@ function Fewatsu:update()
         end
       end
     elseif pd.buttonJustPressed("b") then
-      self:hide()
+      local menuOptions = {}
+
+      for k, v in pairs(self.titlesToPaths) do
+        table.insert(menuOptions, k)
+      end
+
+      table.sort(menuOptions)
+
+      fewatsu_menu.open(table.indexOfElement(menuOptions, self.title), self.menuWidth, menuOptions, function(item)
+        if item == "*Exit...*" then
+          self:hide()
+        elseif item ~= nil then
+          self:loadFile(self.titlesToPaths[item])
+        end
+
+        self.inputDelayTimer = pd.timer.new(10)
+      end)
+      -- self:hide()
     end
   end
 

@@ -10,9 +10,10 @@ fewatsu = Fewatsu()
 function playdate.update()
   gfx.clear()
   gfx.drawText("Press A to start Fewatsu.", 0, 1)
+end
 
-  if pd.buttonJustPressed("a") then
-    fewatsu:loadFile("manual/manual.json")
-    fewatsu:show()
-  end
+function playdate.AButtonDown()
+  fewatsu:setDirectory("manual/")
+  fewatsu:loadFile("manual/manual.json")
+  fewatsu:show()
 end

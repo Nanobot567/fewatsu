@@ -1,0 +1,16 @@
+{
+  "title": "Page 5",
+  "id": "page5",
+  "data": [
+    {
+      "type": "title",
+      "text": "Page 5"
+    },
+    "This is another example page, to show that linking to other pages is possible!",
+    {
+      "type": "link",
+      "text": "back",
+      "page": "main"
+    }
+  ]
+}

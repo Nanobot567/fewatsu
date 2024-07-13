@@ -1,5 +1,5 @@
 {
-  "title": "Fewatsu",
+  "title": "Main Page",
   "id": "main",
   "data": [
     {
@@ -49,6 +49,10 @@
     {
       "type": "quote",
       "text": "quote box"
+    },
+    {
+      "type": "quote",
+      "text": "here is a very very very very very very large quote box to test how it handles things"
     },
     {
       "type": "link",
