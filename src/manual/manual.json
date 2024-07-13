@@ -27,6 +27,7 @@
       "text": "Right aligned text",
       "alignment": "right"
     },
+    "Icon test: [[a]] [[b]] [[up]] [[right]] [[down]] [[left]] [[dpad]] [[playdate]] [[crank]] [[menu]] [[lock]]",
     {
       "type": "orderedlist",
       "items": [

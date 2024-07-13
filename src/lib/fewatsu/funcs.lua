@@ -25,3 +25,26 @@ function math.round(num, numDecimalPlaces)
   local mult = 10 ^ (numDecimalPlaces or 0)
   return math.floor(num * mult + 0.5) / mult
 end
+
+local textReplacementTable = {
+  ["%[%[a%]%]"] = "Ⓐ",
+  ["%[%[b%]%]"] = "Ⓑ",
+  ["%[%[left%]%]"] = "⬅️",
+  ["%[%[right%]%]"] = "➡️",
+  ["%[%[up%]%]"] = "⬆️",
+  ["%[%[down%]%]"] = "⬇️",
+  ["%[%[dpad%]%]"] = "✛",
+  ["%[%[playdate%]%]"] = "🟨",
+  ["%[%[menu%]%]"] = "⊙",
+  ["%[%[lock%]%]"] = "🔒",
+  ["%[%[crank%]%]"] = "🎣"
+}
+
+
+function replaceIconCodes(text)
+  for k, v in pairs(textReplacementTable) do
+    text = string.gsub(text, k, v)
+  end
+
+  return text
+end

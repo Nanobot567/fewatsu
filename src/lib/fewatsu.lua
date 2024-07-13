@@ -5,6 +5,7 @@ import "fewatsu/imageViewer"
 
 import "CoreLibs/animator"
 import "CoreLibs/object"
+import "CoreLibs/timer"
 
 local pd <const> = playdate
 local gfx <const> = playdate.graphics
@@ -31,15 +32,17 @@ function Fewatsu:init()
   self.cwd = "manual/" -- TODO: add way to change
 
   self.offsetAnimator = nil -- TODO: add a way to create a custom animator and stuff
-  self.animatorEaseTime = 300
+  self.animatorEaseTime = 350
+
+  self.inputDelayTimer = nil
 
   self.elements = {}
-
-  self:updateText()
 end
 
 -- show function. this should push the handler
 function Fewatsu:show()
+  self.offset = 0
+
   self.originalRefreshRate = pd.display.getRefreshRate()
 
   pd.display.setRefreshRate(50)
@@ -54,6 +57,10 @@ function Fewatsu:hide()
   pd.update = self.oldUpdate
 
   pd.display.setRefreshRate(self.originalRefreshRate)
+end
+
+function Fewatsu:loadFile(file)
+  self:load(json.decodeFile(file))
 end
 
 function Fewatsu:load(json)
@@ -99,6 +106,17 @@ function Fewatsu:load(json)
     table.insert(elementYs, currentY)
 
     elemType = element["type"]
+
+    if element["text"] then
+      element["text"] = replaceIconCodes(element["text"])
+    end
+
+    if element["items"] then
+      for itemI, item in ipairs(element["items"]) do
+        element["items"][itemI] = replaceIconCodes(item)
+      end
+    end
+
     if elemType == "title" then
       local textw, texth = gfx.getTextSizeForMaxWidth(element["text"], FEWATSU_WIDTH, nil, self.titleFont)
 
@@ -307,19 +325,13 @@ function Fewatsu:load(json)
         end
       end
 
-      local x = FEWATSU_X
-
       if img ~= nil then
         img = img:scaledImage(scale, yscale)
 
-        if element["x"] ~= nil then
-          x = element["x"]
-        end
-
-        img:draw(x, currentElementY)
+        img:draw(element["x"], currentElementY)
       end
 
-      table.insert(self.imgXs, x)
+      table.insert(self.imgXs, element["x"])
       table.insert(self.imgYs, currentElementY)
       table.insert(self.imgWidths, img.width)
       table.insert(self.imgHeights, img.height)
@@ -340,87 +352,91 @@ function Fewatsu:load(json)
   return self.image
 end
 
-function Fewatsu:updateText()
-  self:load(json.decodeFile("manual/manual.json"))
-end
-
 function Fewatsu:update()
+  pd.timer.updateTimers()
+
   local selectableObjects = {}
   gfx.clear()
 
-  if self.image.height >= 240 then
-    if pd.buttonIsPressed("down") then
-      self.offset += 10
-    elseif pd.buttonIsPressed("up") then
-      self.offset -= 10
+  if self.inputDelayTimer == nil or self.inputDelayTimer.timeLeft == 0 then
+    if self.image.height >= 240 then
+      if pd.buttonIsPressed("down") then
+        self.offset += 10
+      elseif pd.buttonIsPressed("up") then
+        self.offset -= 10
+      end
+
+      local chg, achg = pd.getCrankChange()
+
+      self.offset += chg
+
+      if self.offset < 0 then
+        self.offset = 0
+      elseif self.offset > self.image.height - 240 then
+        self.offset = self.image.height - 240
+      end
     end
 
-    local chg, achg = pd.getCrankChange()
+    if pd.buttonJustPressed("a") then
+      local oldOffset = self.offset
 
-    self.offset += chg
+      if self.selectedObject ~= nil then
+        local obj = self.selectedObject
 
-    if self.offset < 0 then
-      self.offset = 0
-    elseif self.offset > self.image.height - 240 then
-      self.offset = self.image.height - 240
-    end
-  end
+        if obj["type"] == "link" then
+          local location = obj["location"]
 
-  if pd.buttonJustPressed("a") then
-    local oldOffset = self.offset
+          if location[1] ~= nil then
+            local decodedFile = json.decodeFile(location[1])
 
-    if self.selectedObject ~= nil then
-      local obj = self.selectedObject
+            if decodedFile == nil then
+              local ids = {}
+              for i, v in ipairs(pd.file.listFiles(self.cwd)) do
+                local dc = json.decodeFile(self.cwd .. v)
 
-      if obj["type"] == "link" then
-        local location = obj["location"]
+                if dc ~= nil then
+                  if (dc["id"] == location[1] and string.sub(location[1], #location[1] - 4) ~= ".json") or (v == location[1] or self.cwd .. v == location[1]) then
+                    decodedFile = dc
+                    break
+                  end
+                end
+              end
+            end
 
-        if location[1] ~= nil then
-          local decodedFile = json.decodeFile(location[1])
+            if decodedFile == nil then
+              error("couldn't load file with id " .. location[1] .. " in directory " .. self.cwd)
+            end
 
-          if decodedFile == nil then
-            local ids = {}
-            for i, v in ipairs(pd.file.listFiles(self.cwd)) do
-              local dc = json.decodeFile(self.cwd .. v)
+            self:load(decodedFile)
+          end
 
-              if dc ~= nil then
-                if (dc["id"] == location[1] and string.sub(location[1], #location[1] - 4) ~= ".json") or (v == location[1] or self.cwd .. v == location[1]) then
-                  decodedFile = dc
-                  break
+          if location[2] ~= nil then
+            if location[2] == "#top" then
+              self.offset = 0
+            elseif location[2] == "#bottom" then
+              self.offset = self.image.height - 240
+            else
+              if self.image.height > 240 then
+                self.offset = self.headerYs[location[2]]
+
+                if self.offset > self.image.height - 240 then
+                  self.offset = self.image.height - 240
                 end
               end
             end
           end
 
-          if decodedFile == nil then
-            error("couldn't load file with id " .. location[1] .. " in directory " .. self.cwd)
+          if oldOffset ~= self.offset then
+            self.offsetAnimator = gfx.animator.new(self.animatorEaseTime, oldOffset, self.offset, pd.easingFunctions.outExpo)
           end
-
-          self:load(decodedFile)
+        elseif obj["type"] == "image" then
+          fewatsu_imageViewer.open(gfx.image.new(obj["path"]), obj["caption"], function()
+            self.inputDelayTimer = pd.timer.new(10)
+          end)
         end
-
-        if location[2] ~= nil then
-          if location[2] == "#top" then
-            self.offset = 0
-          elseif location[2] == "#bottom" then
-            self.offset = self.image.height - 240
-          else
-            if self.image.height > 240 then
-              self.offset = self.headerYs[location[2]]
-
-              if self.offset > self.image.height - 240 then
-                self.offset = self.image.height - 240
-              end
-            end
-          end
-        end
-
-        if oldOffset ~= self.offset then
-          self.offsetAnimator = gfx.animator.new(self.animatorEaseTime, oldOffset, self.offset, pd.easingFunctions.outExpo)
-        end
-      elseif obj["type"] == "image" then
-        fewatsu_imageViewer.open(gfx.image.new(obj["path"]), obj["caption"])
       end
+    elseif pd.buttonJustPressed("b") then
+      self:hide()
     end
   end
 

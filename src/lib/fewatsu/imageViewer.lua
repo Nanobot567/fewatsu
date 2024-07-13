@@ -9,13 +9,19 @@ local imageViewer = fewatsu_imageViewer
 
 imageViewer.hideUI = false
 
-function imageViewer.open(image, caption)
+function imageViewer.open(image, caption, callback)
   imageViewer.x = 200
   imageViewer.y = 120
   imageViewer.scale = 1
   
   imageViewer.image = image
   imageViewer.originalImage = image
+
+  if callback ~= nil then
+    imageViewer.callback = callback
+  else
+    imageViewer.callback = function() end
+  end
 
   if caption == nil then
     imageViewer.caption = ""
@@ -86,6 +92,8 @@ function imageViewer.crankDocked()
 end
 
 function imageViewer.close()
+  imageViewer.callback()
+
   pd.update = imageViewer.oldUpdate
   pd.inputHandlers.pop()
 
