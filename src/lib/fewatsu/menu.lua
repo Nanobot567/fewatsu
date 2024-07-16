@@ -83,13 +83,9 @@ function menu.update()
 
   if pd.buttonJustPressed("down") then
     listview:selectNextRow()
-
-    menu.SOUND_MOVE:play()
   elseif pd.buttonJustPressed("up") then
     if listview:getSelectedRow() > 2 then
       listview:selectPreviousRow()
-
-      menu.SOUND_MOVE:play()
     end
   end
 
