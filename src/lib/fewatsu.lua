@@ -24,13 +24,16 @@ local FEWATSU_DEFAULT_DATA = {
       type = "title",
       text = "Fewatsu",
     },
-    "Fewatsu is a simple electronic manual library for *Playdate*.",
+    "Fewatsu is an electronic manual library for *Playdate*.",
     "If you are seeing this, then nothing has been loaded into Fewatsu yet! Check that your code is calling either a *fewatsu:load()* or *fewatsu:loadFile()*. If you're confused, check out the documentation online!"
   }
 }
 
 class("Fewatsu").extends()
 
+---Initializes a new Fewatsu instance.
+---
+--- @return nil
 function Fewatsu:init()
   self.font = gfx.getSystemFont()
   self.headingFont = gfx.font.new("lib/fewatsu/fnt/Sasser-Slab")
@@ -53,7 +56,7 @@ function Fewatsu:init()
   self.menuAnimatorEaseTime = 350
 
   self.inputDelayTimer = nil
-  
+
   self.leftPadding = 2
   self.rightPadding = 2
 
@@ -69,7 +72,11 @@ function Fewatsu:init()
   self:load(FEWATSU_DEFAULT_DATA)
 end
 
--- show function. this should push the handler
+---Displays Fewatsu.
+---
+---Executing this function replaces the current `playdate.update` function, pushes new input handlers, and changes the display refresh rate. To restore, call `Fewatsu:hide()`.
+---
+--- @return nil
 function Fewatsu:show()
   self.offset = 0
 
@@ -80,6 +87,10 @@ function Fewatsu:show()
   pd.inputHandlers.push(self, true)
   self.oldUpdate = pd.update
   pd.update = function() self.update(self) end
+
+  self.inputDelayTimer = pd.timer.new(10)
+
+  self:update(true)
 end
 
 function Fewatsu:hide()
@@ -93,21 +104,36 @@ function Fewatsu:loadFile(file)
   self:load(json.decodeFile(file))
 end
 
-
--- sets the current working directory
+---Sets the current working directory. Fewatsu can use this to call for images and JSON files without using the absolute path.
+---
+---Returns `true` on success, `false` on failure.
+---
+--- @param dir string
+--- @return boolean
 function Fewatsu:setDirectory(dir)
   self.titlesToPaths = {}
-  self.cwd = dir
 
-  for i, v in ipairs(pd.file.listFiles(self.cwd)) do
-    if string.sub(v, #v - 4) == ".json" then
-      local fileData = json.decodeFile(self.cwd .. v)
+  if pd.file.exists(dir) then
+    self.cwd = dir
 
-      self.titlesToPaths[fileData["title"]] = self.cwd .. v
+    for i, v in ipairs(pd.file.listFiles(self.cwd)) do
+      if string.sub(v, #v - 4) == ".json" then
+        local fileData = json.decodeFile(self.cwd .. v)
+
+        self.titlesToPaths[fileData["title"]] = self.cwd .. v
+      end
     end
+
+    return true
+  else
+    return false
   end
 end
 
+---Parses the given JSON file and sets the current manual page to the image generated. Returns the image.
+---
+--- @param json table
+--- @return playdate.image
 function Fewatsu:load(json)
   self.linkXs = {}
   self.linkYs = {}
@@ -165,42 +191,46 @@ function Fewatsu:load(json)
     end
 
     if elemType == "title" then
-      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"], FEWATSU_WIDTH - (self.rightPadding + self.leftPadding), nil, self.titleFont)
+      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"],
+        FEWATSU_WIDTH - (self.rightPadding + self.leftPadding), nil, self.titleFont)
 
       table.insert(textHeights, texth)
 
       self.headerYs[string.lower(element["text"])] = currentY
 
       if not element["y"] then
-        currentY += texth + 10
+        currentY = texth + 10
       end
     elseif elemType == "heading" then
-      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"], FEWATSU_WIDTH - (self.rightPadding + self.leftPadding), nil, self.boldHeadingFont)
+      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"],
+        FEWATSU_WIDTH - (self.rightPadding + self.leftPadding), nil, self.boldHeadingFont)
 
       table.insert(textHeights, texth)
 
       self.headerYs[string.lower(element["text"])] = currentY
 
       if not element["y"] then
-        currentY += texth + 10
+        currentY = currentY + texth + 10
       end
     elseif elemType == "subheading" then
-      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"], FEWATSU_WIDTH - (self.rightPadding + self.leftPadding), nil, self.headingFont)
+      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"],
+        FEWATSU_WIDTH - (self.rightPadding + self.leftPadding), nil, self.headingFont)
 
       table.insert(textHeights, texth)
 
       self.headerYs[string.lower(element["text"])] = currentY
 
       if not element["y"] then
-        currentY += texth + 10
+        currentY = currentY + texth + 10
       end
     elseif elemType == "text" then
-      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"], FEWATSU_WIDTH - (self.rightPadding + self.leftPadding))
+      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"],
+        FEWATSU_WIDTH - (self.rightPadding + self.leftPadding))
 
       table.insert(textHeights, texth)
 
       if not element["y"] then
-        currentY += texth + 10
+        currentY = currentY + texth + 10
       end
     elseif elemType == "orderedlist" or elemType == "unorderedlist" then
       local temp = {}
@@ -220,17 +250,19 @@ function Fewatsu:load(json)
 
       table.insert(processedLists, text)
 
-      local textw, texth = gfx.getTextSizeForMaxWidth(text, FEWATSU_WIDTH - FEWATSU_LISTINDENT - (self.rightPadding + self.leftPadding)) -- indent
+      local textw, texth = gfx.getTextSizeForMaxWidth(text,
+        FEWATSU_WIDTH - FEWATSU_LISTINDENT - (self.rightPadding + self.leftPadding))
 
       table.insert(textHeights, texth)
 
-      currentY += texth + 10
+      currentY = currentY + texth + 10
     elseif elemType == "quote" then
-      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"], FEWATSU_WIDTH - (self.quoteBoxPadding * 2) - (self.rightPadding + self.leftPadding))
+      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"],
+        FEWATSU_WIDTH - (self.quoteBoxPadding * 2) - (self.rightPadding + self.leftPadding))
 
       table.insert(textHeights, texth)
 
-      currentY += texth + 24
+      currentY = currentY + texth + 24
     elseif elemType == "image" then
       local imgpath = element["source"]
       local scale, yscale = 1, 1
@@ -252,10 +284,11 @@ function Fewatsu:load(json)
       if img ~= nil then
         img = img:scaledImage(scale, yscale)
 
-        currentY += img.height * scale + 20
+        currentY = currentY + img.height * scale + 20
       end
     elseif elemType == "link" then
-      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"], FEWATSU_WIDTH - (self.rightPadding + self.leftPadding), nil, self.linkFont)
+      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"],
+        FEWATSU_WIDTH - (self.rightPadding + self.leftPadding), nil, self.linkFont)
 
       table.insert(textHeights, texth)
 
@@ -273,9 +306,9 @@ function Fewatsu:load(json)
 
       table.insert(self.linkLocations, { element["page"], element["section"] })
 
-      currentY += texth + 10
+      currentY = currentY + texth + 10
     elseif elemType == "break" then
-      currentY += 30
+      currentY = currentY + 30
     end
   end
 
@@ -328,16 +361,20 @@ function Fewatsu:load(json)
     end
 
     if elemType == "title" then
-      gfx.drawTextInRect(element["text"], element["x"], currentElementY, element["width"], table.remove(textHeights, 1), nil,
+      gfx.drawTextInRect(element["text"], element["x"], currentElementY, element["width"], table.remove(textHeights, 1),
+        nil,
         nil, element["alignment"], self.titleFont)
     elseif elemType == "heading" then
-      gfx.drawTextInRect(element["text"], element["x"], currentElementY, element["width"], table.remove(textHeights, 1), nil,
+      gfx.drawTextInRect(element["text"], element["x"], currentElementY, element["width"], table.remove(textHeights, 1),
+        nil,
         nil, element["alignment"], self.boldHeadingFont)
     elseif elemType == "subheading" then
-      gfx.drawTextInRect(element["text"], element["x"], currentElementY, element["width"], table.remove(textHeights, 1), nil,
+      gfx.drawTextInRect(element["text"], element["x"], currentElementY, element["width"], table.remove(textHeights, 1),
+        nil,
         nil, element["alignment"], self.headingFont)
     elseif elemType == "text" then
-      gfx.drawTextInRect(element["text"], element["x"], currentElementY, element["width"], table.remove(textHeights, 1), nil,
+      gfx.drawTextInRect(element["text"], element["x"], currentElementY, element["width"], table.remove(textHeights, 1),
+        nil,
         nil, element["alignment"])
     elseif elemType == "orderedlist" or elemType == "unorderedlist" then
       gfx.drawTextInRect(table.remove(processedLists, 1), self.leftPadding + FEWATSU_LISTINDENT, currentElementY,
@@ -345,11 +382,12 @@ function Fewatsu:load(json)
     elseif elemType == "quote" then
       local textHeight = table.remove(textHeights, 1)
       local radius = 4
-      local rect = pd.geometry.rect.new(self.leftPadding + self.quoteBoxPadding, currentElementY + 5, FEWATSU_WIDTH - (self.quoteBoxPadding * 2) - (self.leftPadding + self.rightPadding), textHeight + 4)
+      local rect = pd.geometry.rect.new(self.leftPadding + self.quoteBoxPadding, currentElementY + 5,
+        FEWATSU_WIDTH - (self.quoteBoxPadding * 2) - (self.leftPadding + self.rightPadding), textHeight + 4)
 
       gfx.drawRoundRect(rect, radius)
 
-      rect.y += 2
+      rect.y = rect.y + 2
 
       gfx.drawTextInRect(element["text"], rect, nil, nil, kTextAlignment.center)
 
@@ -394,11 +432,15 @@ function Fewatsu:load(json)
       table.insert(self.imgPaths, imgpath)
       table.insert(self.imgCaptions, element["caption"])
     elseif elemType == "link" then
-      gfx.drawTextInRect(element["text"], element["x"], currentElementY, element["width"], table.remove(textHeights, 1), nil,
+      gfx.drawTextInRect(element["text"], element["x"], currentElementY, element["width"], table.remove(textHeights, 1),
+        nil,
         nil, element["alignment"], self.linkFont)
     elseif elemType == "break" then
       if element["visible"] ~= false then
-        gfx.drawLine(FEWATSU_X + self.leftPadding + 20, currentElementY, FEWATSU_WIDTH - self.rightPadding - 20, currentElementY)
+        gfx.setLineWidth(2)
+        gfx.drawLine(FEWATSU_X + self.leftPadding + 20, currentElementY, FEWATSU_WIDTH - self.rightPadding - 20,
+          currentElementY)
+        gfx.setLineWidth(1)
       end
     end
   end
@@ -408,23 +450,28 @@ function Fewatsu:load(json)
   return self.image
 end
 
-function Fewatsu:update()
+---Updates Fewatsu and draws it to the screen if needed.
+---
+---If `force` is true, draw to the screen no matter what.
+---
+--- @param force boolean
+function Fewatsu:update(force)
+  local oldOffset = self.offset
   pd.timer.updateTimers()
 
   local selectableObjects = {}
-  gfx.clear()
 
   if self.inputDelayTimer == nil or self.inputDelayTimer.timeLeft == 0 then
     if self.image.height >= 240 then
       if pd.buttonIsPressed("down") then
-        self.offset += 10
+        self.offset = self.offset + 10
       elseif pd.buttonIsPressed("up") then
-        self.offset -= 10
+        self.offset = self.offset - 10
       end
 
       local chg, achg = pd.getCrankChange()
 
-      self.offset += chg
+      self.offset = self.offset + chg
 
       if self.offset < 0 then
         self.offset = 0
@@ -434,8 +481,6 @@ function Fewatsu:update()
     end
 
     if pd.buttonJustPressed("a") then
-      local oldOffset = self.offset
-
       if self.selectedObject ~= nil and self.selectedObject ~= 0 then
         local obj = self.selectedObject
 
@@ -464,6 +509,8 @@ function Fewatsu:update()
             end
 
             self:load(decodedFile)
+
+            force = true
           end
 
           if location[2] ~= nil then
@@ -483,11 +530,14 @@ function Fewatsu:update()
           end
 
           if oldOffset ~= self.offset then
-            self.offsetAnimator = gfx.animator.new(self.animatorEaseTime, oldOffset, self.offset, pd.easingFunctions.outExpo)
+            self.offsetAnimator = gfx.animator.new(self.animatorEaseTime, oldOffset, self.offset,
+              pd.easingFunctions.outExpo)
           end
         elseif obj["type"] == "image" then
           fewatsu_imageViewer.open(gfx.image.new(obj["path"]), obj["caption"], function()
             self.inputDelayTimer = pd.timer.new(10)
+
+            self:update(true)
           end)
         end
       end
@@ -501,13 +551,15 @@ function Fewatsu:update()
       table.sort(menuOptions)
 
       fewatsu_menu.open(table.indexOfElement(menuOptions, self.title), self.menuWidth, menuOptions, function(item)
-        if item == "*Exit...*" then
+        if item == fewatsu_menu.EXIT_ITEM then
           self:hide()
         elseif item ~= nil then
           self:loadFile(self.titlesToPaths[item])
         end
 
         self.inputDelayTimer = pd.timer.new(10)
+
+        self:update(true)
       end)
       -- self:hide()
     end
@@ -517,58 +569,61 @@ function Fewatsu:update()
     self.offset = self.offsetAnimator:currentValue()
   end
 
-  self.image:draw(0, 0 - self.offset)
+  if force or self.offset ~= oldOffset then
+    gfx.clear()
+    self.image:draw(0, 0 - self.offset)
 
-  self.selectedObject = nil
+    self.selectedObject = nil
 
-  for i, v in ipairs(self.linkYs) do
-    if v - self.offset < 120 and v - self.offset > -120 then
-      table.insert(selectableObjects, {
-        type = "link",
-        i = i,
-        y = v,
-        location = self.linkLocations[i]
-      })
-    end
-  end
-
-  for i, v in ipairs(self.imgYs) do
-    if v - self.offset < 120 and v - self.offset > -120 then
-      table.insert(selectableObjects, {
-        type = "image",
-        i = i,
-        y = v,
-        path = self.imgPaths[i],
-        caption = self.imgCaptions[i]
-      })
-    end
-  end
-
-  table.sort(selectableObjects, function(a, b)
-    return a["y"] < b["y"]
-  end)
-
-  if #selectableObjects ~= 0 then
-    local closest = selectableObjects[1]
-
-    for i, v in pairs(selectableObjects) do
-      if math.abs(v["y"] - self.offset - 120) < closest["y"] then
-        closest = v
+    for i, v in ipairs(self.linkYs) do
+      if v - self.offset < 120 and v - self.offset > -120 then
+        table.insert(selectableObjects, {
+          type = "link",
+          i = i,
+          y = v,
+          location = self.linkLocations[i]
+        })
       end
     end
 
-    if closest["type"] == "link" then
-      gfx.drawRoundRect(self.linkXs[closest["i"]], closest["y"] - self.offset, self.linkWidths[closest["i"]], 22, 2)
-    elseif closest["type"] == "image" then
-      local index = closest["i"]
-      gfx.setLineWidth(3)
-      gfx.setColor(gfx.kColorXOR)
-      gfx.drawRect(self.imgXs[index], self.imgYs[index] - self.offset, self.imgWidths[index], self.imgHeights[index])
-      gfx.setColor(gfx.kColorBlack)
-      gfx.setLineWidth(1)
+    for i, v in ipairs(self.imgYs) do
+      if v - self.offset < 120 and v - self.offset > -120 then
+        table.insert(selectableObjects, {
+          type = "image",
+          i = i,
+          y = v,
+          path = self.imgPaths[i],
+          caption = self.imgCaptions[i]
+        })
+      end
     end
 
-    self.selectedObject = closest
+    table.sort(selectableObjects, function(a, b)
+      return a["y"] < b["y"]
+    end)
+
+    if #selectableObjects ~= 0 then
+      local closest = selectableObjects[1]
+
+      for i, v in pairs(selectableObjects) do
+        if math.abs(v["y"] - self.offset - 120) < closest["y"] then
+          closest = v
+        end
+      end
+
+      if closest["type"] == "link" then
+        gfx.drawRoundRect(self.linkXs[closest["i"]], closest["y"] - self.offset, self.linkWidths[closest["i"]], 22, 2)
+      elseif closest["type"] == "image" then
+        local index = closest["i"]
+        gfx.setLineWidth(3)
+        gfx.setColor(gfx.kColorXOR)
+        gfx.drawRect(self.imgXs[index], self.imgYs[index] - self.offset, self.imgWidths[index], self.imgHeights[index])
+        gfx.setColor(gfx.kColorBlack)
+        gfx.setLineWidth(1)
+      end
+
+      self.selectedObject = closest
+    end
   end
 
   -- pd.drawFPS(380, 220)
