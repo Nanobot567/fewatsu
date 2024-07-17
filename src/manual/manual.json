@@ -84,8 +84,14 @@
     "image 0.5x",
     {
       "type": "image",
-      "source": "manual/example",
+      "source": "example",
       "scale": 0.5,
+      "x": 0
+    },
+    "nonexistent image",
+    {
+      "type": "image",
+      "source": "manual/thisdoesntexist",
       "x": 0
     },
     {

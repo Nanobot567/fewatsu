@@ -5,8 +5,6 @@ fewatsu_menu = {}
 
 local menu = fewatsu_menu
 
-local menuOptions = {"*Fewatsu*", menu.EXIT_ITEM}
-
 local listview = playdate.ui.gridview.new(0, 20)
 listview:setCellPadding(4, 4, 2, 2)
 
@@ -17,15 +15,20 @@ function listview:drawCell(section, row, column, selected, x, y, width, height)
   else
     gfx.setImageDrawMode(gfx.kDrawModeCopy)
   end
-  gfx.drawTextInRect(menuOptions[row], x, y+2, width, height, nil, "...", kTextAlignment.center)
+  gfx.drawTextInRect(menuOptions[row], x, y + 2, width, height, nil, "...", kTextAlignment.center)
 end
 
+menu.titleItemText = "Fewatsu"
+menu.EXIT_ITEM_TEXT = "*Exit...*"
 
-menu.EXIT_ITEM = "*Exit...*"
+menu.easeTime = 350
+menu.easeFunc = pd.easingFunctions.outExpo
 
-function menu.open(currentItem, width, options, callback)
+menu.width = 120
+
+function menu.open(currentItem, options, callback)
   listview:removeHorizontalDividers()
-  menuOptions = {"*Fewatsu*", menu.EXIT_ITEM}
+  menuOptions = { "*" .. menu.titleItemText .. "*", menu.EXIT_ITEM_TEXT}
   listview:addHorizontalDividerAbove(1, 2)
 
   for i = #options, 1, -1 do
@@ -49,15 +52,13 @@ function menu.open(currentItem, width, options, callback)
   menu.selectedItem = nil
 
   menu.callback = callback
-
-  menu.width = width
   menu.backgroundImage = gfx.getDisplayImage():fadedImage(0.5, gfx.image.kDitherTypeBayer4x4)
 
   menu.oldUpdate = pd.update
   pd.update = menu.update
   pd.inputHandlers.push(menu, true)
 
-  menu.animator = gfx.animator.new(350, menu.width, 0, pd.easingFunctions.outExpo)
+  menu.animator = gfx.animator.new(menu.easeTime, menu.width, 0, menu.easeFunc)
 end
 
 function menu.update()
@@ -66,11 +67,11 @@ function menu.update()
   if pd.buttonJustPressed("a") then
     menu.selectedItem = menuOptions[listview:getSelectedRow()]
 
-    if menu.selectedItem == menu.EXIT_ITEM then
+    if menu.selectedItem == menu.EXIT_ITEM_TEXT then
       menu.close()
 
       if menu.callback then
-        menu.callback(menu.EXIT_ITEM)
+        menu.callback(menu.EXIT_ITEM_TEXT)
       end
     else
       menu.closeStage1()
@@ -125,7 +126,7 @@ function menu.closeStage1()
 
       menu.backgroundImage = gfx.getWorkingImage()
 
-      menu.animator = gfx.animator.new(250, 0, menu.width, pd.easingFunctions.outExpo)
+      menu.animator = gfx.animator.new(menu.easeTime, 0, menu.width, menu.easeFunc)
     end
   end
 end

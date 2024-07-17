@@ -12,6 +12,8 @@ import "fewatsu/menu"
 local pd <const> = playdate
 local gfx <const> = playdate.graphics
 
+local FEWATSU_LIB_PATH = getScriptPath()
+
 local FEWATSU_X = 0
 local FEWATSU_WIDTH = 400
 local FEWATSU_LISTINDENT = 20
@@ -29,28 +31,28 @@ local FEWATSU_DEFAULT_DATA = {
   }
 }
 
+
 class("Fewatsu").extends()
 
 ---Initializes a new Fewatsu instance.
 ---
---- @return nil
+---@return nil
 function Fewatsu:init()
   self.font = gfx.getSystemFont()
-  self.headingFont = gfx.font.new("lib/fewatsu/fnt/Sasser-Slab")
-  self.boldHeadingFont = gfx.font.new("lib/fewatsu/fnt/Sasser-Slab-Bold")
+  self.subheadingFont = gfx.font.new(FEWATSU_LIB_PATH .. "fewatsu/fnt/Sasser-Slab")
+  self.headingFont = gfx.font.new(FEWATSU_LIB_PATH .. "fewatsu/fnt/Sasser-Slab-Bold")
   self.boldFont = gfx.getSystemFont(gfx.font.kVariantBold)
   self.italicFont = gfx.getSystemFont(gfx.font.kVariantItalic)
-  self.titleFont = gfx.font.new("lib/fewatsu/fnt/Asheville-Sans-24-Light")
+  self.titleFont = gfx.font.new(FEWATSU_LIB_PATH .. "fewatsu/fnt/Asheville-Sans-24-Light")
   self.linkFont = self.boldFont
 
   self.selectedObject = 0
 
   self.offset = 0
 
-  self.offsetAnimator = nil -- TODO: add a way to create a custom animator and stuff
+  self.offsetAnimator = nil
   self.animatorEaseTime = 350
-
-  self.menuWidth = 120
+  self.animatorEaseFunction = pd.easingFunctions.outExpo
 
   self.menuAnimator = gfx.animator.new(0, self.menuWidth, self.menuWidth)
   self.menuAnimatorEaseTime = 350
@@ -69,75 +71,22 @@ function Fewatsu:init()
 
   self.elements = {}
 
+  self.preUpdate = nil
+  self.postUpdate = nil
+  self.callback = nil
+
   self:load(FEWATSU_DEFAULT_DATA)
-end
-
----Displays Fewatsu.
----
----Executing this function replaces the current `playdate.update` function, pushes new input handlers, and changes the display refresh rate. To restore, call `Fewatsu:hide()`.
----
---- @return nil
-function Fewatsu:show()
-  self.offset = 0
-
-  self.originalRefreshRate = pd.display.getRefreshRate()
-
-  pd.display.setRefreshRate(50)
-
-  pd.inputHandlers.push(self, true)
-  self.oldUpdate = pd.update
-  pd.update = function() self.update(self) end
-
-  self.inputDelayTimer = pd.timer.new(10)
-
-  self:update(true)
-end
-
-function Fewatsu:hide()
-  pd.inputHandlers.pop()
-  pd.update = self.oldUpdate
-
-  pd.display.setRefreshRate(self.originalRefreshRate)
-end
-
-function Fewatsu:loadFile(file)
-  self:load(json.decodeFile(file))
-end
-
----Sets the current working directory. Fewatsu can use this to call for images and JSON files without using the absolute path.
----
----Returns `true` on success, `false` on failure.
----
---- @param dir string
---- @return boolean
-function Fewatsu:setDirectory(dir)
-  self.titlesToPaths = {}
-
-  if pd.file.exists(dir) then
-    self.cwd = dir
-
-    for i, v in ipairs(pd.file.listFiles(self.cwd)) do
-      if string.sub(v, #v - 4) == ".json" then
-        local fileData = json.decodeFile(self.cwd .. v)
-
-        self.titlesToPaths[fileData["title"]] = self.cwd .. v
-      end
-    end
-
-    return true
-  else
-    return false
-  end
 end
 
 ---Parses the given JSON file and sets the current manual page to the image generated. Returns the image.
 ---
---- @param json table
---- @return playdate.image
+---@param json table
+---@return playdate.image
 function Fewatsu:load(json)
   self.linkXs = {}
   self.linkYs = {}
   self.linkWidths = {}
+  self.linkHeights = {}
   self.linkLocations = {}
 
   self.imgXs = {}
@@ -203,7 +152,7 @@ function Fewatsu:load(json)
       end
     elseif elemType == "heading" then
       local textw, texth = gfx.getTextSizeForMaxWidth(element["text"],
-        FEWATSU_WIDTH - (self.rightPadding + self.leftPadding), nil, self.boldHeadingFont)
+        FEWATSU_WIDTH - (self.rightPadding + self.leftPadding), nil, self.headingFont)
 
       table.insert(textHeights, texth)
 
@@ -214,7 +163,7 @@ function Fewatsu:load(json)
       end
     elseif elemType == "subheading" then
       local textw, texth = gfx.getTextSizeForMaxWidth(element["text"],
-        FEWATSU_WIDTH - (self.rightPadding + self.leftPadding), nil, self.headingFont)
+        FEWATSU_WIDTH - (self.rightPadding + self.leftPadding), nil, self.subheadingFont)
 
       table.insert(textHeights, texth)
 
@@ -264,6 +213,7 @@ function Fewatsu:load(json)
 
       currentY = currentY + texth + 24
     elseif elemType == "image" then
+      local img
       local imgpath = element["source"]
       local scale, yscale = 1, 1
 
@@ -275,17 +225,17 @@ function Fewatsu:load(json)
         yscale = element["yscale"]
       end
 
-      local img = gfx.image.new(imgpath)
+      imgpath = getExistentPath(self.cwd, imgpath .. ".pdi")
 
-      if img == nil then
-        img = gfx.image.new(self.cwd .. imgpath)
-      end
+      if imgpath ~= nil then
+        img = gfx.image.new(imgpath)
 
-      if img ~= nil then
         img = img:scaledImage(scale, yscale)
-
-        currentY = currentY + img.height * scale + 20
+      else
+        img = generateImageNotFoundImage(element["source"])
       end
+
+      currentY = currentY + img.height * scale + 20
     elseif elemType == "link" then
       local textw, texth = gfx.getTextSizeForMaxWidth(element["text"],
         FEWATSU_WIDTH - (self.rightPadding + self.leftPadding), nil, self.linkFont)
@@ -295,6 +245,7 @@ function Fewatsu:load(json)
       table.insert(self.linkXs, (FEWATSU_X + self.leftPadding - 2)) -- TODO: allow custom x and y positions
       table.insert(self.linkYs, currentY - 2)
       table.insert(self.linkWidths, textw + 4)
+      table.insert(self.linkHeights, texth + 2)
 
       if element["page"] then
         element["page"] = string.lower(element["page"])
@@ -362,20 +313,16 @@ function Fewatsu:load(json)
 
     if elemType == "title" then
       gfx.drawTextInRect(element["text"], element["x"], currentElementY, element["width"], table.remove(textHeights, 1),
-        nil,
-        nil, element["alignment"], self.titleFont)
+        nil, nil, element["alignment"], self.titleFont)
     elseif elemType == "heading" then
       gfx.drawTextInRect(element["text"], element["x"], currentElementY, element["width"], table.remove(textHeights, 1),
-        nil,
-        nil, element["alignment"], self.boldHeadingFont)
+        nil, nil, element["alignment"], self.headingFont)
     elseif elemType == "subheading" then
       gfx.drawTextInRect(element["text"], element["x"], currentElementY, element["width"], table.remove(textHeights, 1),
-        nil,
-        nil, element["alignment"], self.headingFont)
+        nil, nil, element["alignment"], self.subheadingFont)
     elseif elemType == "text" then
       gfx.drawTextInRect(element["text"], element["x"], currentElementY, element["width"], table.remove(textHeights, 1),
-        nil,
-        nil, element["alignment"])
+        nil, nil, element["alignment"])
     elseif elemType == "orderedlist" or elemType == "unorderedlist" then
       gfx.drawTextInRect(table.remove(processedLists, 1), self.leftPadding + FEWATSU_LISTINDENT, currentElementY,
         FEWATSU_WIDTH - FEWATSU_LISTINDENT - self.rightPadding - self.leftPadding, table.remove(textHeights, 1))
@@ -395,6 +342,7 @@ function Fewatsu:load(json)
         radius = element["radius"]
       end
     elseif elemType == "image" then
+      local img
       local imgpath = element["source"]
 
       local scale, yscale = 1, 1
@@ -409,21 +357,17 @@ function Fewatsu:load(json)
         yscale = scale
       end
 
-      local img = gfx.image.new(imgpath)
+      imgpath = getExistentPath(self.cwd, imgpath .. ".pdi")
 
-      if img == nil then
-        img = gfx.image.new(self.cwd .. imgpath)
+      if imgpath ~= nil then
+        img = gfx.image.new(imgpath)
 
-        if img ~= nil then
-          imgpath = self.cwd .. imgpath
-        end
-      end
-
-      if img ~= nil then
         img = img:scaledImage(scale, yscale)
-
-        img:draw(element["x"], currentElementY)
+      else
+        img = generateImageNotFoundImage(element["source"])
       end
+
+      img:draw(element["x"], currentElementY)
 
       table.insert(self.imgXs, element["x"])
       table.insert(self.imgYs, currentElementY)
@@ -454,10 +398,14 @@ end
 ---
 ---If `force` is true, draw to the screen no matter what.
 ---
---- @param force boolean
+---@param force boolean
 function Fewatsu:update(force)
   local oldOffset = self.offset
   pd.timer.updateTimers()
+
+  if self.preUpdate then
+    self.preUpdate()
+  end
 
   local selectableObjects = {}
 
@@ -488,9 +436,16 @@ function Fewatsu:update(force)
           local location = obj["location"]
 
           if location[1] ~= nil then
-            local decodedFile = json.decodeFile(location[1])
+            local decodedFile
+            local path = getExistentPath(self.cwd, location[1])
 
-            if decodedFile == nil then
+            if path == nil then
+              path = getExistentPath(self.cwd, location[1] .. ".json")
+            end
+
+            if path ~= nil then
+              decodedFile = json.decodeFile(path)
+            else
               local ids = {}
               for i, v in ipairs(pd.file.listFiles(self.cwd)) do
                 local dc = json.decodeFile(self.cwd .. v)
@@ -531,14 +486,16 @@ function Fewatsu:update(force)
 
           if oldOffset ~= self.offset then
             self.offsetAnimator = gfx.animator.new(self.animatorEaseTime, oldOffset, self.offset,
-              pd.easingFunctions.outExpo)
+              self.animatorEaseFunction)
           end
         elseif obj["type"] == "image" then
-          fewatsu_imageViewer.open(gfx.image.new(obj["path"]), obj["caption"], function()
-            self.inputDelayTimer = pd.timer.new(10)
+          if obj["path"] ~= nil then
+            fewatsu_imageViewer.open(gfx.image.new(obj["path"]), obj["caption"], function()
+              self.inputDelayTimer = pd.timer.new(10)
 
-            self:update(true)
-          end)
+              self:update(true)
+            end)
+          end
         end
       end
     elseif pd.buttonJustPressed("b") then
@@ -550,8 +507,8 @@ function Fewatsu:update(force)
 
       table.sort(menuOptions)
 
-      fewatsu_menu.open(table.indexOfElement(menuOptions, self.title), self.menuWidth, menuOptions, function(item)
-        if item == fewatsu_menu.EXIT_ITEM then
+      fewatsu_menu.open(table.indexOfElement(menuOptions, self.title), menuOptions, function(item)
+        if item == fewatsu_menu.EXIT_ITEM_TEXT then
           self:hide()
         elseif item ~= nil then
           self:loadFile(self.titlesToPaths[item])
@@ -612,7 +569,7 @@ function Fewatsu:update(force)
       end
 
       if closest["type"] == "link" then
-        gfx.drawRoundRect(self.linkXs[closest["i"]], closest["y"] - self.offset, self.linkWidths[closest["i"]], 22, 2)
+        gfx.drawRoundRect(self.linkXs[closest["i"]], closest["y"] - self.offset, self.linkWidths[closest["i"]], self.linkHeights[closest["i"]], 2)
       elseif closest["type"] == "image" then
         local index = closest["i"]
         gfx.setLineWidth(3)
@@ -626,5 +583,204 @@ function Fewatsu:update(force)
     end
   end
 
+  if self.postUpdate then
+    self.postUpdate()
+  end
+
   -- pd.drawFPS(380, 220)
+end
+
+---Displays Fewatsu.
+---
+---Executing this function replaces the current `playdate.update` function, pushes new input handlers, and changes the display refresh rate. To restore, call `Fewatsu:hide()`.
+---
+---@return nil
+function Fewatsu:show()
+  self.offset = 0
+
+  self.originalRefreshRate = pd.display.getRefreshRate()
+
+  pd.display.setRefreshRate(50)
+
+  pd.inputHandlers.push(self, true)
+  self.oldUpdate = pd.update
+  pd.update = function() self.update(self) end
+
+  self.inputDelayTimer = pd.timer.new(10)
+
+  self:update(true)
+end
+
+---Hides Fewatsu, restoring the original `playdate.update()` function and input handlers.
+---
+---@return nil
+function Fewatsu:hide()
+  pd.inputHandlers.pop()
+  pd.update = self.oldUpdate
+
+  pd.display.setRefreshRate(self.originalRefreshRate)
+
+  if self.callback then
+    self.callback()
+  end
+end
+
+---Shorthand function for loading a JSON file into Fewatsu.
+---
+---@param file string
+function Fewatsu:loadFile(file)
+  local path = getExistentPath(self.cwd, file)
+
+  if path ~= nil then
+    self:load(json.decodeFile(path))
+  else
+    error("could not load file " .. file)
+  end
+end
+
+---Sets the current working directory. Fewatsu can use this to call for images and JSON files without using the absolute path.
+---
+---Returns `true` on success, `false` on failure.
+---
+---@param dir string
+---@return boolean
+function Fewatsu:setCurrentWorkingDirectory(dir)
+  self.titlesToPaths = {}
+
+  if pd.file.exists(dir) then
+    self.cwd = dir
+
+    for i, v in ipairs(pd.file.listFiles(self.cwd)) do
+      if string.sub(v, #v - 4) == ".json" then
+        local fileData = json.decodeFile(self.cwd .. v)
+
+        self.titlesToPaths[fileData["title"]] = self.cwd .. v
+      end
+    end
+
+    return true
+  else
+    return false
+  end
+end
+
+---Returns the current working directory.
+---
+---@return string
+function Fewatsu:getCurrentWorkingDirectory()
+  return self.cwd
+end
+
+---Sets the time it takes to scroll to a new manual page offset.
+---
+---Defaults to `350`.
+---
+---@param ms number
+function Fewatsu:setScrollDuration(ms)
+  self.animatorEaseTime = ms
+end
+
+---Sets a different easing function which will be used instead of the default when scrolling to a new manual page offset. Can be any `playdate.easingFunction`.
+---
+---Defaults to `playdate.easingFunctions.outExpo`.
+---
+---@param func function
+function Fewatsu:setScrollEasingFunction(func)
+  self.animatorEaseFunction = func
+end
+
+---Sets the function to be called when Fewatsu has completed its `:hide()` function.
+---
+---@param callback function
+function Fewatsu:setCallback(callback)
+  self.callback = callback
+end
+
+---Sets the function that is called before any processing happens in `Fewatsu:update()`.
+---
+---@param func function
+function Fewatsu:setPreUpdate(func)
+  self.preUpdate = func
+end
+
+---Sets the function that is called after all processing in `Fewatsu:update()`.
+---
+---@param func function
+function Fewatsu:setPostUpdate(func)
+  self.postUpdate = func
+end
+
+---Sets the font used for plaintext.
+---
+---@param font playdate.graphics.font
+function Fewatsu:setFont(font)
+  self.font = font
+end
+
+---Sets the font used for heading text.
+---
+---@param font playdate.graphics.font
+function Fewatsu:setHeadingFont(font)
+  self.headingFont = font
+end
+
+---Sets the font used for subheading text.
+---
+---@param font playdate.graphics.font
+function Fewatsu:setSubheadingFont(font)
+  self.subheadingFont = font
+end
+
+---Sets the font used for bold text.
+---
+---@param font playdate.graphics.font
+function Fewatsu:setBoldFont(font)
+  self.boldFont = font
+end
+
+---Sets the font used for italic text.
+---
+---@param font playdate.graphics.font
+function Fewatsu:setItalicFont(font)
+  self.italicFont = font
+end
+
+---Sets the font used for title text.
+---
+---@param font playdate.graphics.font
+function Fewatsu:setTitleFont(font)
+  self.titleFont = font
+end
+
+---Sets the font used for link text.
+---
+---@param font playdate.graphics.font
+function Fewatsu:setLinkFont(font)
+  self.linkFont = font
+end
+
+---Sets the text shown at the top of the menu.
+---
+---Defaults to `Fewatsu`.
+---
+---@param title string
+function Fewatsu:setMenuTitle(title)
+  fewatsu_menu.titleItemText = title
+end
+
+---Sets the menu width.
+---
+---Defaults to `120`.
+---
+---@param title string
+function Fewatsu:setMenuWidth(width)
+  fewatsu_menu.width = width
+end
+
+function Fewatsu:setMenuEaseDuration(ms)
+  fewatsu_menu.easeTime = ms
+end
+
+function Fewatsu:setMenuEasingFunction(func)
+  fewatsu_menu.easeFunc = func
 end
