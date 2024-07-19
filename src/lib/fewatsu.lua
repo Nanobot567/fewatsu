@@ -575,7 +575,7 @@ function Fewatsu:update(force)
     self.selectedObject = nil
 
     for i, v in ipairs(self.linkYs) do
-      if v - self.offset < self.linkHeights[i] and v - self.offset > -self.linkHeights[i] then
+      if v - self.offset < 120 and v - self.offset > -120 then
         table.insert(selectableObjects, {
           type = "link",
           i = i,
@@ -586,7 +586,7 @@ function Fewatsu:update(force)
     end
 
     for i, v in ipairs(self.imgYs) do
-      if v - self.offset < self.imgHeights[i] and v - self.offset > -self.imgHeights[i] and not table.indexOfElement(table.getKeys(self.animatedImages), v) then
+      if v - self.offset < 120 and v - self.offset > -120 and not table.indexOfElement(table.getKeys(self.animatedImages), v) then
         table.insert(selectableObjects, {
           type = "image",
           i = i,
