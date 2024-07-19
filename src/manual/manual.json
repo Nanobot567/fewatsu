@@ -88,6 +88,12 @@
       "scale": 0.5,
       "x": 0
     },
+    "animated image",
+    {
+      "type": "image",
+      "source": "cube",
+      "x": 0
+    },
     "nonexistent image",
     {
       "type": "image",

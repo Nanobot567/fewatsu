@@ -29,6 +29,25 @@ function math.round(num, numDecimalPlaces)
   return math.floor(num * mult + 0.5) / mult
 end
 
+function table.getKeys(t)
+  local keys = {}
+  for k, v in pairs(t) do
+    table.insert(keys, k)
+  end
+  return keys
+end
+
+function table.slice(tbl, first, last, step)
+  local sliced = {}
+
+  for i = first or 1, last or #tbl, step or 1 do
+    sliced[#sliced+1] = tbl[i]
+  end
+
+  return sliced
+end
+
+
 local textReplacementTable = {
   ["%[%[a%]%]"] = "Ⓐ",
   ["%[%[b%]%]"] = "Ⓑ",

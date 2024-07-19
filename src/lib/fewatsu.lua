@@ -8,6 +8,7 @@ import "CoreLibs/ui"
 import "fewatsu/funcs"
 import "fewatsu/imageViewer"
 import "fewatsu/menu"
+import "fewatsu/animatedImage"
 
 local pd <const> = playdate
 local gfx <const> = playdate.graphics
@@ -95,6 +96,14 @@ function Fewatsu:load(json)
   self.imgHeights = {}
   self.imgPaths = {}
   self.imgCaptions = {}
+
+  if self.animatedImages then
+    for k, v in pairs(self.animatedImages) do
+      v:destroy()
+    end
+  end
+
+  self.animatedImages = {}
 
   self.selectedLink = 0
 
@@ -229,10 +238,20 @@ function Fewatsu:load(json)
 
       if imgpath ~= nil then
         img = gfx.image.new(imgpath)
-
-        img = img:scaledImage(scale, yscale)
       else
-        img = generateImageNotFoundImage(element["source"])
+        imgpath = getExistentPath(self.cwd, element["source"] .. ".pdt")
+
+        if imgpath == nil then
+          img = generateImageNotFoundImage(element["source"])
+
+          scale = 1
+        else
+          img = gfx.imagetable.new(imgpath)[1]
+        end
+      end
+
+      if imgpath ~= nil then
+        img = img:scaledImage(scale, yscale)
       end
 
       currentY = currentY + img.height * scale + 20
@@ -364,7 +383,21 @@ function Fewatsu:load(json)
 
         img = img:scaledImage(scale, yscale)
       else
-        img = generateImageNotFoundImage(element["source"])
+        imgpath = getExistentPath(self.cwd, element["source"] .. ".pdt")
+
+        if imgpath == nil then
+          img = generateImageNotFoundImage(element["source"])
+        else
+          if element["delay"] == nil then
+            element["delay"] = 0
+          end
+
+          local animImage = AnimatedImage(imgpath, element["delay"])
+
+          self.animatedImages[currentElementY] = animImage
+
+          img = animImage:getCurrentFrame()
+        end
       end
 
       img:draw(element["x"], currentElementY)
@@ -529,11 +562,20 @@ function Fewatsu:update(force)
   if force or self.offset ~= oldOffset then
     gfx.clear()
     self.image:draw(0, 0 - self.offset)
+  end
 
+  for k, v in pairs(self.animatedImages) do
+    if k - self.offset < v:getCurrentFrame().height and k - self.offset > -v:getCurrentFrame().height then
+      v:update()
+      v:getCurrentFrame():draw(0, k - self.offset)
+    end
+  end
+
+  if force or self.offset ~= oldOffset then
     self.selectedObject = nil
 
     for i, v in ipairs(self.linkYs) do
-      if v - self.offset < 120 and v - self.offset > -120 then
+      if v - self.offset < self.linkHeights[i] and v - self.offset > -self.linkHeights[i] then
         table.insert(selectableObjects, {
           type = "link",
           i = i,
@@ -544,7 +586,7 @@ function Fewatsu:update(force)
     end
 
     for i, v in ipairs(self.imgYs) do
-      if v - self.offset < 120 and v - self.offset > -120 then
+      if v - self.offset < self.imgHeights[i] and v - self.offset > -self.imgHeights[i] and not table.indexOfElement(table.getKeys(self.animatedImages), v) then
         table.insert(selectableObjects, {
           type = "image",
           i = i,

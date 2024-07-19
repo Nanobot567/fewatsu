@@ -6,8 +6,7 @@ local pd <const> = playdate
 local gfx <const> = playdate.graphics
 
 fewatsu = Fewatsu()
-
-fewatsu:setMenuWidth(200)
+fewatsu:setCurrentWorkingDirectory("manual/")
 
 function playdate.update()
   gfx.clear()
@@ -15,7 +14,6 @@ function playdate.update()
 end
 
 function playdate.AButtonDown()
-  fewatsu:setCurrentWorkingDirectory("manual/")
   fewatsu:loadFile("manual/manual.json")
   fewatsu:show()
 end

@@ -99,4 +99,6 @@ function imageViewer.close()
 
   imageViewer.image = nil
   imageViewer.originalImage = nil
+
+  gfx.setImageDrawMode(gfx.kDrawModeCopy)
 end
