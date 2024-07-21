@@ -17,6 +17,8 @@ function imageViewer.open(image, caption, callback)
   imageViewer.image = image
   imageViewer.originalImage = image
 
+  gfx.setImageDrawMode(gfx.kDrawModeNXOR)
+
   if callback ~= nil then
     imageViewer.callback = callback
   else
@@ -32,8 +34,6 @@ function imageViewer.open(image, caption, callback)
   pd.inputHandlers.push(imageViewer, true)
   imageViewer.oldUpdate = pd.update
   pd.update = imageViewer.update
-
-  gfx.setImageDrawMode(gfx.kDrawModeNXOR)
 end
 
 function imageViewer.update()
@@ -92,6 +92,8 @@ function imageViewer.crankDocked()
 end
 
 function imageViewer.close()
+  gfx.setImageDrawMode(gfx.kDrawModeCopy)
+
   imageViewer.callback()
 
   pd.update = imageViewer.oldUpdate
@@ -99,6 +101,4 @@ function imageViewer.close()
 
   imageViewer.image = nil
   imageViewer.originalImage = nil
-
-  gfx.setImageDrawMode(gfx.kDrawModeCopy)
 end

@@ -7,6 +7,7 @@ local gfx <const> = playdate.graphics
 
 fewatsu = Fewatsu()
 fewatsu:setCurrentWorkingDirectory("manual/")
+fewatsu:setDarkMode(true)
 
 function playdate.update()
   gfx.clear()

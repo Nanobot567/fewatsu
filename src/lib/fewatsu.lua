@@ -63,7 +63,7 @@ function Fewatsu:init()
   self.leftPadding = 2
   self.rightPadding = 2
 
-  self.quoteBoxPadding = 20
+  self.quoteBoxPadding = 30
 
   self.titlesToPaths = {}
 
@@ -71,6 +71,8 @@ function Fewatsu:init()
   self.path = ""
 
   self.elements = {}
+
+  self.darkMode = false
 
   self.preUpdate = nil
   self.postUpdate = nil
@@ -104,8 +106,6 @@ function Fewatsu:load(json)
   end
 
   self.animatedImages = {}
-
-  self.selectedLink = 0
 
   self.headerYs = {}
 
@@ -216,7 +216,7 @@ function Fewatsu:load(json)
       currentY = currentY + texth + 10
     elseif elemType == "quote" then
       local textw, texth = gfx.getTextSizeForMaxWidth(element["text"],
-        FEWATSU_WIDTH - (self.quoteBoxPadding * 2) - (self.rightPadding + self.leftPadding))
+        FEWATSU_WIDTH - (self.quoteBoxPadding * 2) - (self.rightPadding + self.leftPadding) - 4)
 
       table.insert(textHeights, texth)
 
@@ -292,7 +292,20 @@ function Fewatsu:load(json)
   gfx.setFont(self.boldFont, gfx.font.kVariantBold)
   gfx.setFont(self.italicFont, gfx.font.kVariantItalic)
 
-  gfx.clear()
+  local origColor = gfx.getColor()
+  local color = gfx.kColorBlack
+  local imageDrawMode = gfx.kDrawModeCopy
+
+  gfx.clear(gfx.kColorWhite)
+
+  if self.darkMode then
+    color = gfx.kColorWhite
+    imageDrawMode = gfx.kDrawModeInverted
+    gfx.clear(gfx.kColorBlack)
+  end
+
+  gfx.setColor(color)
+  gfx.setImageDrawMode(imageDrawMode)
 
   for elementI, element in ipairs(elements) do -- draw
     elemType = element["type"]
@@ -353,7 +366,9 @@ function Fewatsu:load(json)
 
       gfx.drawRoundRect(rect, radius)
 
+      rect.x = rect.x + 2
       rect.y = rect.y + 2
+      rect.width = rect.width - 4
 
       gfx.drawTextInRect(element["text"], rect, nil, nil, kTextAlignment.center)
 
@@ -400,7 +415,12 @@ function Fewatsu:load(json)
         end
       end
 
+      local oldDrawMode = gfx.getImageDrawMode()
+      gfx.setImageDrawMode(gfx.kDrawModeCopy)
+
       img:draw(element["x"], currentElementY)
+
+      gfx.setImageDrawMode(oldDrawMode)
 
       table.insert(self.imgXs, element["x"])
       table.insert(self.imgYs, currentElementY)
@@ -551,7 +571,6 @@ function Fewatsu:update(force)
 
         self:update(true)
       end)
-      -- self:hide()
     end
   end
 
@@ -560,7 +579,11 @@ function Fewatsu:update(force)
   end
 
   if force or self.offset ~= oldOffset then
-    gfx.clear()
+    if self.darkMode then
+      gfx.clear(gfx.kColorBlack)
+    else
+      gfx.clear(gfx.kColorWhite)
+    end
     self.image:draw(0, 0 - self.offset)
   end
 
@@ -610,16 +633,20 @@ function Fewatsu:update(force)
         end
       end
 
+      local origColor = gfx.getColor()
+      gfx.setColor(gfx.kColorXOR)
+
       if closest["type"] == "link" then
         gfx.drawRoundRect(self.linkXs[closest["i"]], closest["y"] - self.offset, self.linkWidths[closest["i"]], self.linkHeights[closest["i"]], 2)
       elseif closest["type"] == "image" then
         local index = closest["i"]
+
         gfx.setLineWidth(3)
-        gfx.setColor(gfx.kColorXOR)
         gfx.drawRect(self.imgXs[index], self.imgYs[index] - self.offset, self.imgWidths[index], self.imgHeights[index])
-        gfx.setColor(gfx.kColorBlack)
         gfx.setLineWidth(1)
       end
+
+      gfx.setColor(origColor)
 
       self.selectedObject = closest
     end
@@ -641,14 +668,16 @@ function Fewatsu:show()
   self.offset = 0
 
   self.originalRefreshRate = pd.display.getRefreshRate()
+  self.originalDisplayInvertedMode = pd.display.getInverted()
 
   pd.display.setRefreshRate(50)
+  pd.display.setInverted(false)
+
+  self.inputDelayTimer = pd.timer.new(10)
 
   pd.inputHandlers.push(self, true)
   self.oldUpdate = pd.update
   pd.update = function() self.update(self) end
-
-  self.inputDelayTimer = pd.timer.new(10)
 
   self:update(true)
 end
@@ -661,6 +690,7 @@ function Fewatsu:hide()
   pd.update = self.oldUpdate
 
   pd.display.setRefreshRate(self.originalRefreshRate)
+  pd.display.setInverted(self.originalDisplayInvertedMode)
 
   if self.callback then
     self.callback()
@@ -715,7 +745,7 @@ end
 
 ---Sets the time it takes to scroll to a new manual page offset.
 ---
----Defaults to `350`.
+---Defaults to `350`ms.
 ---
 ---@param ms number
 function Fewatsu:setScrollDuration(ms)
@@ -812,17 +842,63 @@ end
 
 ---Sets the menu width.
 ---
----Defaults to `120`.
+---Defaults to `120`px.
 ---
----@param title string
+---@param width number
 function Fewatsu:setMenuWidth(width)
   fewatsu_menu.width = width
 end
 
+---Sets the time it takes for the menu to ease in.
+---
+---Defaults to `350`ms.
+---
+---@param ms number
 function Fewatsu:setMenuEaseDuration(ms)
   fewatsu_menu.easeTime = ms
 end
 
+---Sets a different easing function which will be used instead of the default when animating the menu slide-in. Can be any `playdate.easingFunction`.
+---
+---Defaults to `playdate.easingFunctions.outExpo`.
+---
+---@param func function
 function Fewatsu:setMenuEasingFunction(func)
   fewatsu_menu.easeFunc = func
+end
+
+---Sets the pixel amount to pad the left side of the Fewatsu viewing area.
+---
+---Defaults to `2`px.
+---
+---@param px number
+function Fewatsu:setElementPaddingLeft(px)
+  self.leftPadding = px
+end
+
+---Sets the pixel amount to pad the right side of the Fewatsu viewing area.
+---
+---Defaults to `2`px.
+---
+---@param px number
+function Fewatsu:setElementPaddingRight(px)
+  self.rightPadding = px
+end
+
+---Sets the pixel amount to pad the right and left side of quote boxes.
+---
+---Defaults to `30`px.
+---
+---@param px number
+function Fewatsu:setQuoteBoxPadding(px)
+  self.quoteBoxPadding = px
+end
+
+---Set if dark theme should be used. Doesn't apply to images, and is only applied on `Fewatsu:load()`.
+---
+---Defaults to `false`.
+---
+---@param mode boolean
+function Fewatsu:setDarkMode(mode)
+  self.darkMode = mode
 end
