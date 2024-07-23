@@ -32,16 +32,62 @@ local FEWATSU_DEFAULT_DATA = {
   }
 }
 
+---@class Fewatsu
+---@field private selectedObject number
+---@field private offset number
+---@field private offsetAnimator playdate.graphics.animator
+---@field private inputDelayTimer playdate.timer
+---@field private titlesToPaths table
+---@field private title string
+---@field private path string
+---@field private elements table
+---@field private linkXs table
+---@field private linkYs table
+---@field private linkWidths table
+---@field private linkHeights table
+---@field private linkLocations table
+---@field private imgXs table
+---@field private imgYs table
+---@field private imgWidths table
+---@field private imgHeights table
+---@field private imgPaths table
+---@field private imgCaptions table
+---@field private originalRefreshRate number
+---@field private originalDisplayInvertedMode number
+---@field private animatedImages table
+---
+---@field font playdate.graphics.font|_Font The font used for drawing plaintext.
+---@field headingFont playdate.graphics.font|_Font The font used for drawing headings.
+---@field subheadingFont playdate.graphics.font|_Font The font used for drawing subheadings.
+---@field boldFont playdate.graphics.font|_Font The font used for drawing bold text.
+---@field italicFont playdate.graphics.font|_Font The font used for drawing italic text.
+---@field titleFont playdate.graphics.font|_Font The font used for drawing titles.
+---@field linkFont playdate.graphics.font|_Font The font used for drawing links.
+---@field animatorEaseTime number The time it takes for Fewatsu to ease to a new document position.
+---@field animatorEaseFunction function The function used when easing to a new document position.
+---@field leftPadding number The amount to pad the left side of the document when generating.
+---@field rightPadding number The amount to pad the right side of the document when generating.
+---@field topPadding number The amount to pad the top of the document when generating.
+---@field quoteBoxPadding number The amount to pad the left and right side of quote boxes.
+---@field darkMode boolean
+---@field preUpdate function The function which will be called before any processing is done in `Fewatsu:update()`.
+---@field postUpdate function The function which will be called after all processing is done in `Fewatsu:update()`.
+---@field callback function The function which will be called after `Fewatsu:hide()` has completed execution.
+---@field cwd string Fewatsu current working directory.
+Fewatsu = {}
 
 class("Fewatsu").extends()
 
----Initializes a new Fewatsu instance.
+---Initializes a new Fewatsu instance at `workingDirectory` and loads the default document.
 ---
----@return nil
-function Fewatsu:init()
+---Default path is `manual/`.
+---
+---@param workingDirectory? string
+---@return Fewatsu
+function Fewatsu:init(workingDirectory)
   self.font = gfx.getSystemFont()
-  self.subheadingFont = gfx.font.new(FEWATSU_LIB_PATH .. "fewatsu/fnt/Sasser-Slab")
   self.headingFont = gfx.font.new(FEWATSU_LIB_PATH .. "fewatsu/fnt/Sasser-Slab-Bold")
+  self.subheadingFont = gfx.font.new(FEWATSU_LIB_PATH .. "fewatsu/fnt/Sasser-Slab")
   self.boldFont = gfx.getSystemFont(gfx.font.kVariantBold)
   self.italicFont = gfx.getSystemFont(gfx.font.kVariantItalic)
   self.titleFont = gfx.font.new(FEWATSU_LIB_PATH .. "fewatsu/fnt/Asheville-Sans-24-Light")
@@ -56,12 +102,12 @@ function Fewatsu:init()
   self.animatorEaseFunction = pd.easingFunctions.outExpo
 
   self.menuAnimator = gfx.animator.new(0, self.menuWidth, self.menuWidth)
-  self.menuAnimatorEaseTime = 350
 
   self.inputDelayTimer = nil
 
   self.leftPadding = 2
   self.rightPadding = 2
+  self.topPadding = 0
 
   self.quoteBoxPadding = 30
 
@@ -78,7 +124,19 @@ function Fewatsu:init()
   self.postUpdate = nil
   self.callback = nil
 
+  if not workingDirectory then
+    if pd.file.exists("manual/") then
+      workingDirectory = "manual/" -- TODO: note in docs that "manual/" is the default cwd if it exists
+    else
+      workingDirectory = ""
+    end
+  end
+
+  self:setCurrentWorkingDirectory(workingDirectory)
+
   self:load(FEWATSU_DEFAULT_DATA)
+
+  return self
 end
 
 ---Parses the given JSON file and sets the current manual page to the image generated. Returns the image.
@@ -114,7 +172,7 @@ function Fewatsu:load(json)
   self.elements = {}
 
 
-  local currentY = 0
+  local currentY = self.topPadding
   local elements = json["data"]
   local elementYs = {}
   local textHeights = {}
@@ -246,7 +304,9 @@ function Fewatsu:load(json)
 
           scale = 1
         else
-          img = gfx.imagetable.new(imgpath)[1]
+          self.animatedImages[currentY] = AnimatedImage(imgpath, element["delay"])
+
+          img = self.animatedImages[currentY]:getCurrentFrame()
         end
       end
 
@@ -261,7 +321,13 @@ function Fewatsu:load(json)
 
       table.insert(textHeights, texth)
 
-      table.insert(self.linkXs, (FEWATSU_X + self.leftPadding - 2)) -- TODO: allow custom x and y positions
+      local x = FEWATSU_X + self.leftPadding - 2
+
+      if element["alignment"] == "right" then
+        x = FEWATSU_WIDTH - textw - self.rightPadding - 2
+      end
+
+      table.insert(self.linkXs, x) -- TODO: allow custom x and y positions
       table.insert(self.linkYs, currentY - 2)
       table.insert(self.linkWidths, textw + 4)
       table.insert(self.linkHeights, texth + 2)
@@ -278,15 +344,25 @@ function Fewatsu:load(json)
 
       currentY = currentY + texth + 10
     elseif elemType == "break" then
-      currentY = currentY + 30
+      if not element["linewidth"] then
+        element["linewidth"] = 2
+      end
+
+      currentY = currentY + 20 + element["linewidth"]
+    end
+
+    if elements[i + 1] then
+      if elements[i + 1]["type"] == "break" then
+        currentY = currentY + 10
+      end
     end
   end
 
   local currentElementY = 0
 
-  self.image = gfx.image.new(400, currentY + 10)
+  self.documentImage = gfx.image.new(400, currentY + 10)
 
-  gfx.pushContext(self.image)
+  gfx.pushContext(self.documentImage)
 
   gfx.setFont(self.font, gfx.font.kVariantNormal)
   gfx.setFont(self.boldFont, gfx.font.kVariantBold)
@@ -340,6 +416,10 @@ function Fewatsu:load(json)
         elseif element["alignment"] == "right" then
           element["alignment"] = kTextAlignment.right
         end
+      end
+    elseif elemType == "image" then
+      if element["x"] == nil then
+        element["x"] = FEWATSU_X
       end
     end
 
@@ -403,15 +483,7 @@ function Fewatsu:load(json)
         if imgpath == nil then
           img = generateImageNotFoundImage(element["source"])
         else
-          if element["delay"] == nil then
-            element["delay"] = 0
-          end
-
-          local animImage = AnimatedImage(imgpath, element["delay"])
-
-          self.animatedImages[currentElementY] = animImage
-
-          img = animImage:getCurrentFrame()
+          img = self.animatedImages[currentElementY]:getCurrentFrame()
         end
       end
 
@@ -434,7 +506,11 @@ function Fewatsu:load(json)
         nil, element["alignment"], self.linkFont)
     elseif elemType == "break" then
       if element["visible"] ~= false then
-        gfx.setLineWidth(2)
+        if not element["linewidth"] then
+          element["linewidth"] = 2
+        end
+
+        gfx.setLineWidth(element["linewidth"])
         gfx.drawLine(FEWATSU_X + self.leftPadding + 20, currentElementY, FEWATSU_WIDTH - self.rightPadding - 20,
           currentElementY)
         gfx.setLineWidth(1)
@@ -444,8 +520,11 @@ function Fewatsu:load(json)
 
   gfx.popContext()
 
-  return self.image
+  return self.documentImage
 end
+
+local selectableObjects = {}
+local visibleObjects = {}
 
 ---Updates Fewatsu and draws it to the screen if needed.
 ---
@@ -460,10 +539,8 @@ function Fewatsu:update(force)
     self.preUpdate()
   end
 
-  local selectableObjects = {}
-
   if self.inputDelayTimer == nil or self.inputDelayTimer.timeLeft == 0 then
-    if self.image.height >= 240 then
+    if self.documentImage.height >= 240 then
       if pd.buttonIsPressed("down") then
         self.offset = self.offset + 10
       elseif pd.buttonIsPressed("up") then
@@ -476,8 +553,8 @@ function Fewatsu:update(force)
 
       if self.offset < 0 then
         self.offset = 0
-      elseif self.offset > self.image.height - 240 then
-        self.offset = self.image.height - 240
+      elseif self.offset > self.documentImage.height - 240 then
+        self.offset = self.documentImage.height - 240
       end
     end
 
@@ -525,13 +602,13 @@ function Fewatsu:update(force)
             if location[2] == "#top" then
               self.offset = 0
             elseif location[2] == "#bottom" then
-              self.offset = self.image.height - 240
+              self.offset = self.documentImage.height - 240
             else
-              if self.image.height > 240 then
+              if self.documentImage.height > 240 then
                 self.offset = self.headerYs[location[2]]
 
-                if self.offset > self.image.height - 240 then
-                  self.offset = self.image.height - 240
+                if self.offset > self.documentImage.height - 240 then
+                  self.offset = self.documentImage.height - 240
                 end
               end
             end
@@ -578,13 +655,13 @@ function Fewatsu:update(force)
     self.offset = self.offsetAnimator:currentValue()
   end
 
-  if force or self.offset ~= oldOffset then
+  if force or self.offset ~= oldOffset or pd.buttonJustPressed("right") or pd.buttonJustPressed("left") then
     if self.darkMode then
       gfx.clear(gfx.kColorBlack)
     else
       gfx.clear(gfx.kColorWhite)
     end
-    self.image:draw(0, 0 - self.offset)
+    self.documentImage:draw(0, 0 - self.offset)
   end
 
   for k, v in pairs(self.animatedImages) do
@@ -594,8 +671,9 @@ function Fewatsu:update(force)
     end
   end
 
-  if force or self.offset ~= oldOffset then
-    self.selectedObject = nil
+  if force or self.offset ~= oldOffset or pd.buttonJustPressed("right") or pd.buttonJustPressed("left") then
+    selectableObjects = {}
+    visibleObjects = {}
 
     for i, v in ipairs(self.linkYs) do
       if v - self.offset < 120 and v - self.offset > -120 then
@@ -606,17 +684,38 @@ function Fewatsu:update(force)
           location = self.linkLocations[i]
         })
       end
+
+      if v - self.offset < 400 and v - self.offset > -400 then
+        table.insert(visibleObjects, {
+          type = "link",
+          i = i,
+          y = v,
+          location = self.linkLocations[i]
+        })
+      end
     end
 
     for i, v in ipairs(self.imgYs) do
-      if v - self.offset < 120 and v - self.offset > -120 and not table.indexOfElement(table.getKeys(self.animatedImages), v) then
-        table.insert(selectableObjects, {
-          type = "image",
-          i = i,
-          y = v,
-          path = self.imgPaths[i],
-          caption = self.imgCaptions[i]
-        })
+      if not table.indexOfElement(table.getKeys(self.animatedImages), v) then
+        if v - self.offset < 120 and v - self.offset > -120 then
+          table.insert(selectableObjects, {
+            type = "image",
+            i = i,
+            y = v,
+            path = self.imgPaths[i],
+            caption = self.imgCaptions[i]
+          })
+        end
+
+        if v - self.offset < 400 and v - self.offset > -400 then
+          table.insert(visibleObjects, {
+            type = "image",
+            i = i,
+            y = v,
+            path = self.imgPaths[i],
+            caption = self.imgCaptions[i]
+          })
+        end
       end
     end
 
@@ -624,22 +723,84 @@ function Fewatsu:update(force)
       return a["y"] < b["y"]
     end)
 
-    if #selectableObjects ~= 0 then
-      local closest = selectableObjects[1]
+    table.sort(visibleObjects, function(a, b)
+      return a["y"] < b["y"]
+    end)
 
-      for i, v in pairs(selectableObjects) do
-        if math.abs(v["y"] - self.offset - 120) < closest["y"] then
-          closest = v
+    local selected
+    local passed = false -- better variable name for this lol
+    local drawSelector = false
+
+    if self.offset >= self.documentImage.height - 260 then
+      selected = visibleObjects[#visibleObjects]
+
+      self.selectedObject = selected
+
+      drawSelector = true
+    elseif #selectableObjects ~= 0 then
+      if pd.buttonJustPressed("left") then
+        local index = 0
+        for i, v in ipairs(visibleObjects) do
+          if v["y"] == self.selectedObject["y"] then
+            index = i
+            break
+          end
+        end
+
+        if index - 1 == 0 then
+          selected = table.deepcopy(visibleObjects[1])
+
+          passed = true
+        elseif index - 1 > 0 then
+          selected = table.deepcopy(visibleObjects[index - 1])
+
+          passed = true
+        end
+      elseif pd.buttonJustPressed("right") then
+        local index = 0
+        for i, v in ipairs(visibleObjects) do
+          if v["y"] == self.selectedObject["y"] then
+            index = i
+            break
+          end
+        end
+
+        if index + 1 > #visibleObjects then
+          selected = table.deepcopy(visibleObjects[#visibleObjects])
+
+          passed = true
+        elseif index ~= 0 and index + 1 <= #visibleObjects then
+          selected = table.deepcopy(visibleObjects[index + 1])
+
+          passed = true
         end
       end
 
+      if not passed then
+        selected = selectableObjects[1]
+
+        for i, v in pairs(selectableObjects) do
+          if math.abs(v["y"] - self.offset - 120) < selected["y"] then
+            selected = table.deepcopy(v)
+          end
+        end
+      end
+
+      self.selectedObject = selected
+
+      drawSelector = true
+    else
+      self.selectedObject = nil
+    end
+
+    if drawSelector and selected then
       local origColor = gfx.getColor()
       gfx.setColor(gfx.kColorXOR)
 
-      if closest["type"] == "link" then
-        gfx.drawRoundRect(self.linkXs[closest["i"]], closest["y"] - self.offset, self.linkWidths[closest["i"]], self.linkHeights[closest["i"]], 2)
-      elseif closest["type"] == "image" then
-        local index = closest["i"]
+      if selected["type"] == "link" then
+        gfx.drawRoundRect(self.linkXs[selected["i"]], selected["y"] - self.offset, self.linkWidths[selected["i"]], self.linkHeights[selected["i"]], 2)
+      elseif selected["type"] == "image" then
+        local index = selected["i"]
 
         gfx.setLineWidth(3)
         gfx.drawRect(self.imgXs[index], self.imgYs[index] - self.offset, self.imgWidths[index], self.imgHeights[index])
@@ -647,8 +808,6 @@ function Fewatsu:update(force)
       end
 
       gfx.setColor(origColor)
-
-      self.selectedObject = closest
     end
   end
 
@@ -867,12 +1026,21 @@ function Fewatsu:setMenuEasingFunction(func)
   fewatsu_menu.easeFunc = func
 end
 
+---Sets the amount to pad the top of the Fewatsu document.
+---
+---Defaults to `0`px.
+---
+---@param px number
+function Fewatsu:setTopPadding(px)
+  self.topPadding = px
+end
+
 ---Sets the pixel amount to pad the left side of the Fewatsu viewing area.
 ---
 ---Defaults to `2`px.
 ---
 ---@param px number
-function Fewatsu:setElementPaddingLeft(px)
+function Fewatsu:setLeftPadding(px)
   self.leftPadding = px
 end
 
@@ -881,7 +1049,7 @@ end
 ---Defaults to `2`px.
 ---
 ---@param px number
-function Fewatsu:setElementPaddingRight(px)
+function Fewatsu:setRightPadding(px)
   self.rightPadding = px
 end
 

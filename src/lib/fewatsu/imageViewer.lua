@@ -40,15 +40,15 @@ function imageViewer.update()
   gfx.clear()
 
   if pd.buttonIsPressed("up") then
-    imageViewer.y -= 5
-  elseif pd.buttonIsPressed("down") then
     imageViewer.y += 5
+  elseif pd.buttonIsPressed("down") then
+    imageViewer.y -= 5
   end
   
   if pd.buttonIsPressed("left") then
-    imageViewer.x -= 5
-  elseif pd.buttonIsPressed("right") then
     imageViewer.x += 5
+  elseif pd.buttonIsPressed("right") then
+    imageViewer.x -= 5
   end
 
   imageViewer.image:drawCentered(imageViewer.x, imageViewer.y)

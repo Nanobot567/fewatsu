@@ -51,10 +51,6 @@
       "text": "quote box"
     },
     {
-      "type": "quote",
-      "text": "here is a very very very very very very large quote box to test how it handles things"
-    },
-    {
       "type": "link",
       "text": "link to top",
       "section": "#top"
@@ -78,30 +74,32 @@
     {
       "type": "image",
       "source": "manual/example",
-      "caption": "here is an example caption.",
-      "x": 0
+      "caption": "here is an example caption."
     },
     "image 0.5x",
     {
       "type": "image",
       "source": "example",
-      "scale": 0.5,
-      "x": 0
+      "scale": 0.5
     },
     "animated image",
     {
       "type": "image",
-      "source": "cube",
-      "x": 0
+      "source": "cube"
     },
     "nonexistent image",
     {
       "type": "image",
-      "source": "manual/thisdoesntexist",
-      "x": 0
+      "source": "manual/thisdoesntexist"
     },
     {
       "type": "break"
+    },
+    {
+      "type": "link",
+      "text": "1.1 Welcome to Fewatsu >>",
+      "page": "page2",
+      "alignment": "right"
     }
   ]
 }

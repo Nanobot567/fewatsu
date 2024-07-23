@@ -12,6 +12,11 @@ AnimatedImage.SEGMENT_SIZE = 25
 function AnimatedImage:init(path, delay)
   self.frame = 1
   self.segmentFrame = 1
+
+  if not delay then
+    delay = 0
+  end
+
   self.delay = delay
   self.path = path
 
@@ -55,5 +60,6 @@ end
 
 function AnimatedImage:destroy()
   self.timer:remove()
+  self.images = nil
   self = nil
 end
