@@ -125,6 +125,10 @@ function Fewatsu:init(workingDirectory)
   self.callback = nil
 
   self.backgroundMusic = pd.sound.fileplayer.new(FEWATSU_LIB_PATH .. "fewatsu/snd/bgm")
+  self.backgroundMusicVolume = 0.1
+  self.backgroundMusicFadeTime = 1
+  self.playBGM = true
+
   self.soundClick = pd.sound.sampleplayer.new(FEWATSU_LIB_PATH .. "fewatsu/snd/click")
   self.soundSelect = pd.sound.sampleplayer.new(FEWATSU_LIB_PATH .. "fewatsu/snd/select")
   self.soundMenuOpen = pd.sound.sampleplayer.new(FEWATSU_LIB_PATH .. "fewatsu/snd/menu_open")
@@ -897,9 +901,11 @@ function Fewatsu:show()
   self.oldUpdate = pd.update
   pd.update = function() self.update(self) end
 
-  self.backgroundMusic:setVolume(0, 0)
-  self.backgroundMusic:setVolume(0.1, 0.1, 1)
-  self.backgroundMusic:play(1000)
+  if self.playBGM then
+    self.backgroundMusic:setVolume(0, 0)
+    self.backgroundMusic:setVolume(self.backgroundMusicVolume, self.backgroundMusicVolume, self.backgroundMusicFadeTime)
+    self.backgroundMusic:play(0)
+  end
 
   self:update(true)
 end
@@ -914,9 +920,11 @@ function Fewatsu:hide()
   pd.display.setRefreshRate(self.originalRefreshRate)
   pd.display.setInverted(self.originalDisplayInvertedMode)
 
-  self.backgroundMusic:setVolume(0, 0, 1, function (self)
-    self:stop()
-  end)
+  if self.playBGM then
+    self.backgroundMusic:setVolume(0, 0, self.backgroundMusicFadeTime, function (self)
+      self:stop()
+    end)
+  end
 
   if self.callback then
     self.callback()
@@ -1169,6 +1177,42 @@ end
 ---@param sound playdate.sound.sampleplayer
 function Fewatsu:setMenuSound(sound)
   self.soundMenuOpen = sound
+end
+
+---Sets the background music that will play while Fewatsu is active.
+---
+---By default uses the file `FEWATSU_LIB_PATH/snd/bgm`.
+---
+---@param sound playdate.sound.fileplayer
+function Fewatsu:setBGM(music)
+  self.backgroundMusic = music
+end
+
+---Enables or disables background music.
+---
+---Defaults to `true`.
+---
+---@param status boolean
+function Fewatsu:playBGM(status)
+  self.playBGM = status
+end
+
+---Sets the background music volume.
+---
+---Defaults to `0.1`.
+---
+---@param volume number
+function Fewatsu:setBGMVolume(volume)
+  self.backgroundMusicVolume = volume
+end
+
+---Sets the background music fade in/out time in seconds.
+---
+---Defaults to `1` second.
+---
+---@param fadetime number
+function Fewatsu:setBGMFade(fadetime)
+  self.backgroundMusicFadeTime = fadetime
 end
 
 function Fewatsu:destroy() -- TODO: function that sets everything in this fewatsu instance to nil
