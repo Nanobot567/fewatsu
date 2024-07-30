@@ -9,7 +9,7 @@ class("AnimatedImage").extends()
 
 AnimatedImage.SEGMENT_SIZE = 25
 
-function AnimatedImage:init(path, delay)
+function AnimatedImage:init(path, scale, delay)
   self.frame = 1
   self.segmentFrame = 1
 
@@ -28,6 +28,12 @@ function AnimatedImage:init(path, delay)
   end
 
   local itable = playdate.graphics.imagetable.new(path)
+
+  if scale and scale ~= 1 then
+    for i = 1, #itable do
+      itable:setImage(i, itable[i]:scaledImage(scale))
+    end
+  end
 
   self.imagetableLength = itable:getLength()
 

@@ -26,7 +26,7 @@ menu.easeFunc = pd.easingFunctions.outExpo
 
 menu.width = 120
 
-function menu.open(currentItem, options, callback)
+function menu.open(fewatsuInstance, currentItem, options, callback) -- it's probably bad that i'm passing in self here.. but meh lol
   listview:removeHorizontalDividers()
   menuOptions = { "*" .. menu.titleItemText .. "*", menu.EXIT_ITEM_TEXT}
   listview:addHorizontalDividerAbove(1, 2)
@@ -49,6 +49,10 @@ function menu.open(currentItem, options, callback)
   menu.animating = false
   menu.isOpen = true
 
+  menu.soundClick = fewatsuInstance.soundClick
+  menu.soundSelect = fewatsuInstance.soundSelect
+  menu.soundMenuOpen = fewatsuInstance.soundMenuOpen
+
   menu.selectedItem = nil
 
   menu.callback = callback
@@ -59,34 +63,43 @@ function menu.open(currentItem, options, callback)
   pd.inputHandlers.push(menu, true)
 
   menu.animator = gfx.animator.new(menu.easeTime, menu.width, 0, menu.easeFunc)
+
+  menu.soundMenuOpen:play()
 end
 
 function menu.update()
   pd.timer.updateTimers()
 
-  if pd.buttonJustPressed("a") then
-    menu.selectedItem = menuOptions[listview:getSelectedRow()]
+  if not menu.closing then
+    if pd.buttonJustPressed("a") then
+      menu.soundClick:play()
 
-    if menu.selectedItem == menu.EXIT_ITEM_TEXT then
-      menu.close()
+      menu.selectedItem = menuOptions[listview:getSelectedRow()]
 
-      if menu.callback then
-        menu.callback(menu.EXIT_ITEM_TEXT)
+      if menu.selectedItem == menu.EXIT_ITEM_TEXT then
+        menu.close()
+
+        if menu.callback then
+          menu.callback(menu.EXIT_ITEM_TEXT)
+        end
+      else
+        menu.closeStage1()
       end
-    else
+    end
+
+    if pd.buttonJustPressed("b") then
+      menu.soundMenuOpen:play(1, 1.1)
       menu.closeStage1()
     end
-  end
 
-  if pd.buttonJustPressed("b") then
-    menu.closeStage1()
-  end
-
-  if pd.buttonJustPressed("down") then
-    listview:selectNextRow()
-  elseif pd.buttonJustPressed("up") then
-    if listview:getSelectedRow() > 2 then
-      listview:selectPreviousRow()
+    if pd.buttonJustPressed("down") then
+      menu.soundSelect:play()
+      listview:selectNextRow()
+    elseif pd.buttonJustPressed("up") then
+      menu.soundSelect:play()
+      if listview:getSelectedRow() > 2 then
+        listview:selectPreviousRow()
+      end
     end
   end
 

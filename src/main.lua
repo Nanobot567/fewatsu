@@ -8,7 +8,6 @@ local gfx <const> = playdate.graphics
 local darkmode = false
 
 fewatsu = Fewatsu:init()
--- fewatsu:setCurrentWorkingDirectory("manual/")
 
 function pd.update()
   gfx.clear()

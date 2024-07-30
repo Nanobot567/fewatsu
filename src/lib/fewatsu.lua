@@ -105,9 +105,9 @@ function Fewatsu:init(workingDirectory)
 
   self.inputDelayTimer = nil
 
-  self.leftPadding = 2
-  self.rightPadding = 2
-  self.topPadding = 0
+  self.leftPadding = 4
+  self.rightPadding = 4
+  self.topPadding = 4
 
   self.quoteBoxPadding = 30
 
@@ -123,6 +123,25 @@ function Fewatsu:init(workingDirectory)
   self.preUpdate = nil
   self.postUpdate = nil
   self.callback = nil
+
+  self.backgroundMusic = pd.sound.fileplayer.new(FEWATSU_LIB_PATH .. "fewatsu/snd/bgm")
+  self.soundClick = pd.sound.sampleplayer.new(FEWATSU_LIB_PATH .. "fewatsu/snd/click")
+  self.soundSelect = pd.sound.sampleplayer.new(FEWATSU_LIB_PATH .. "fewatsu/snd/select")
+  self.soundMenuOpen = pd.sound.sampleplayer.new(FEWATSU_LIB_PATH .. "fewatsu/snd/menu_open")
+
+  self.scrollbarBackgroundImage = gfx.image.new(FEWATSU_LIB_PATH .. "fewatsu/img/scrollbar-bg")
+  self.scrollbarSmallImage = gfx.image.new(FEWATSU_LIB_PATH .. "fewatsu/img/scrollbar-small")
+
+  self.scrollbarAnimator = gfx.animator.new(0, 0, 0)
+  self.scrollbarShownTimer = pd.timer.new(0)
+
+  self.scrollbarTimerEndedCallback = function()
+    self.scrollbarAnimator = gfx.animator.new(100, 20, 0)
+    pd.timer.performAfterDelay(90, function () -- FIX
+      self:update(true)
+      pd.display.flush()
+    end)
+  end
 
   if not workingDirectory then
     if pd.file.exists("manual/") then
@@ -165,12 +184,16 @@ function Fewatsu:load(json)
 
   self.animatedImages = {}
 
+  self.scrollbarShownTimer:remove()
+  self.scrollbarAnimator = gfx.animator.new(0, 0, 0)
+  self.scrollbarShownTimer = pd.timer.new(0)
+
+
   self.headerYs = {}
 
   self.offset = 0
 
   self.elements = {}
-
 
   local currentY = self.topPadding
   local elements = json["data"]
@@ -304,9 +327,11 @@ function Fewatsu:load(json)
 
           scale = 1
         else
-          self.animatedImages[currentY] = AnimatedImage(imgpath, element["delay"])
+          self.animatedImages[currentY] = AnimatedImage(imgpath, element["scale"], element["delay"])
 
           img = self.animatedImages[currentY]:getCurrentFrame()
+
+          scale = 1
         end
       end
 
@@ -321,15 +346,15 @@ function Fewatsu:load(json)
 
       table.insert(textHeights, texth)
 
-      local x = FEWATSU_X + self.leftPadding - 2
+      local x = FEWATSU_X + self.leftPadding - 3
 
       if element["alignment"] == "right" then
-        x = FEWATSU_WIDTH - textw - self.rightPadding - 2
+        x = FEWATSU_WIDTH - textw - self.rightPadding - 3
       end
 
       table.insert(self.linkXs, x) -- TODO: allow custom x and y positions
       table.insert(self.linkYs, currentY - 2)
-      table.insert(self.linkWidths, textw + 4)
+      table.insert(self.linkWidths, textw + 6)
       table.insert(self.linkHeights, texth + 2)
 
       if element["page"] then
@@ -523,6 +548,7 @@ function Fewatsu:load(json)
   return self.documentImage
 end
 
+local scrollbarY = 0
 local selectableObjects = {}
 local visibleObjects = {}
 
@@ -560,6 +586,8 @@ function Fewatsu:update(force)
 
     if pd.buttonJustPressed("a") then
       if self.selectedObject ~= nil and self.selectedObject ~= 0 then
+        self.soundClick:play()
+
         local obj = self.selectedObject
 
         if obj["type"] == "link" then
@@ -637,11 +665,13 @@ function Fewatsu:update(force)
 
       table.sort(menuOptions)
 
-      fewatsu_menu.open(table.indexOfElement(menuOptions, self.title), menuOptions, function(item)
+      fewatsu_menu.open(self, table.indexOfElement(menuOptions, self.title), menuOptions, function(item)
         if item == fewatsu_menu.EXIT_ITEM_TEXT then
           self:hide()
         elseif item ~= nil then
-          self:loadFile(self.titlesToPaths[item])
+          if item ~= self.title then
+            self:loadFile(self.titlesToPaths[item])
+          end
         end
 
         self.inputDelayTimer = pd.timer.new(10)
@@ -655,7 +685,7 @@ function Fewatsu:update(force)
     self.offset = self.offsetAnimator:currentValue()
   end
 
-  if force or self.offset ~= oldOffset or pd.buttonJustPressed("right") or pd.buttonJustPressed("left") then
+  if force or self.offset ~= oldOffset or pd.buttonJustPressed("right") or pd.buttonJustPressed("left") or not self.scrollbarAnimator:ended() then
     if self.darkMode then
       gfx.clear(gfx.kColorBlack)
     else
@@ -671,7 +701,7 @@ function Fewatsu:update(force)
     end
   end
 
-  if force or self.offset ~= oldOffset or pd.buttonJustPressed("right") or pd.buttonJustPressed("left") then
+  if force or self.offset ~= oldOffset or pd.buttonJustPressed("right") or pd.buttonJustPressed("left") or not self.scrollbarAnimator:ended() then
     selectableObjects = {}
     visibleObjects = {}
 
@@ -685,7 +715,7 @@ function Fewatsu:update(force)
         })
       end
 
-      if v - self.offset < 400 and v - self.offset > -400 then
+      if v - self.offset < 380 and v - self.offset > -20 then
         table.insert(visibleObjects, {
           type = "link",
           i = i,
@@ -707,7 +737,7 @@ function Fewatsu:update(force)
           })
         end
 
-        if v - self.offset < 400 and v - self.offset > -400 then
+        if v - self.offset < 380 and v - self.offset > -20 then
           table.insert(visibleObjects, {
             type = "image",
             i = i,
@@ -731,7 +761,7 @@ function Fewatsu:update(force)
     local passed = false -- better variable name for this lol
     local drawSelector = false
 
-    if self.offset >= self.documentImage.height - 260 then
+    if self.documentImage.height - 20 <= self.offset and self.offset >= self.documentImage.height + 20 then
       selected = visibleObjects[#visibleObjects]
 
       self.selectedObject = selected
@@ -794,21 +824,32 @@ function Fewatsu:update(force)
     end
 
     if drawSelector and selected then
-      local origColor = gfx.getColor()
-      gfx.setColor(gfx.kColorXOR)
+      self:_drawObjectSelector(selected)
+    end
 
-      if selected["type"] == "link" then
-        gfx.drawRoundRect(self.linkXs[selected["i"]], selected["y"] - self.offset, self.linkWidths[selected["i"]], self.linkHeights[selected["i"]], 2)
-      elseif selected["type"] == "image" then
-        local index = selected["i"]
+    -- if (drawSelector or not self.scrollbarAnimator:ended()) and self.selectedObject then
+    --   self:_drawObjectSelector(selected)
+    -- end
 
-        gfx.setLineWidth(3)
-        gfx.drawRect(self.imgXs[index], self.imgYs[index] - self.offset, self.imgWidths[index], self.imgHeights[index])
-        gfx.setLineWidth(1)
+    if self.documentImage.height > 240 then
+      scrollbarY = (math.abs(1 - ((self.documentImage.height - self.offset - 240) / (self.documentImage.height - 240))) * (240 - self.scrollbarSmallImage.height))
+    else
+      scrollbarY = 0
+    end
+
+    if oldOffset ~= self.offset then
+      if self.scrollbarAnimator:currentValue() == 0 and self.scrollbarShownTimer.timeLeft == 0 then
+        self.scrollbarAnimator = gfx.animator.new(100, 0, 20)
       end
 
-      gfx.setColor(origColor)
+      self.scrollbarShownTimer:remove()
+      self.scrollbarShownTimer = pd.timer.new(1000, self.scrollbarTimerEndedCallback)
     end
+  end
+
+  if self.documentImage.height > 240 then
+    self.scrollbarBackgroundImage:draw(400 - self.scrollbarAnimator:currentValue(), 0)
+    self.scrollbarSmallImage:draw(400 - self.scrollbarAnimator:currentValue(), scrollbarY)
   end
 
   if self.postUpdate then
@@ -816,6 +857,24 @@ function Fewatsu:update(force)
   end
 
   -- pd.drawFPS(380, 220)
+end
+
+function Fewatsu:_drawObjectSelector(selected)
+  local origColor = gfx.getColor()
+
+  gfx.setColor(gfx.kColorXOR)
+
+  if selected["type"] == "link" then
+    gfx.drawRoundRect(self.linkXs[selected["i"]], selected["y"] - self.offset, self.linkWidths[selected["i"]], self.linkHeights[selected["i"]], 2)
+  elseif selected["type"] == "image" then
+    local index = selected["i"]
+
+    gfx.setLineWidth(3)
+    gfx.drawRect(self.imgXs[index], self.imgYs[index] - self.offset, self.imgWidths[index], self.imgHeights[index])
+    gfx.setLineWidth(1)
+  end
+
+  gfx.setColor(origColor)
 end
 
 ---Displays Fewatsu.
@@ -838,6 +897,10 @@ function Fewatsu:show()
   self.oldUpdate = pd.update
   pd.update = function() self.update(self) end
 
+  self.backgroundMusic:setVolume(0, 0)
+  self.backgroundMusic:setVolume(0.1, 0.1, 1)
+  self.backgroundMusic:play(1000)
+
   self:update(true)
 end
 
@@ -850,6 +913,10 @@ function Fewatsu:hide()
 
   pd.display.setRefreshRate(self.originalRefreshRate)
   pd.display.setInverted(self.originalDisplayInvertedMode)
+
+  self.backgroundMusic:setVolume(0, 0, 1, function (self)
+    self:stop()
+  end)
 
   if self.callback then
     self.callback()
@@ -1026,9 +1093,21 @@ function Fewatsu:setMenuEasingFunction(func)
   fewatsu_menu.easeFunc = func
 end
 
+---Sets the amount to pad both sides of the Fewatsu document.
+---
+---Shorthand function for `:setLeftPadding()` and `:setRightPadding()`.
+---
+---Defaults to `4`px.
+---
+---@param px number
+function Fewatsu:setPadding(px)
+  self.leftPadding = px
+  self.rightPadding = px
+end
+
 ---Sets the amount to pad the top of the Fewatsu document.
 ---
----Defaults to `0`px.
+---Defaults to `4`px.
 ---
 ---@param px number
 function Fewatsu:setTopPadding(px)
@@ -1037,7 +1116,7 @@ end
 
 ---Sets the pixel amount to pad the left side of the Fewatsu viewing area.
 ---
----Defaults to `2`px.
+---Defaults to `4`px.
 ---
 ---@param px number
 function Fewatsu:setLeftPadding(px)
@@ -1046,7 +1125,7 @@ end
 
 ---Sets the pixel amount to pad the right side of the Fewatsu viewing area.
 ---
----Defaults to `2`px.
+---Defaults to `4`px.
 ---
 ---@param px number
 function Fewatsu:setRightPadding(px)
@@ -1069,4 +1148,29 @@ end
 ---@param mode boolean
 function Fewatsu:setDarkMode(mode)
   self.darkMode = mode
+end
+
+---Sets the sound that will be played when the A button is pressed.
+---
+---@param sound playdate.sound.sampleplayer
+function Fewatsu:setClickSound(sound)
+  self.soundClick = sound
+end
+
+---Sets the sound that will be played in the Fewatsu menu when `up` or `down` is pressed.
+---
+---@param sound playdate.sound.sampleplayer
+function Fewatsu:setSelectSound(sound)
+  self.soundSelect = sound
+end
+
+---Sets the sound that will be played when the Fewatsu menu is opened or closed.
+---
+---@param sound playdate.sound.sampleplayer
+function Fewatsu:setMenuSound(sound)
+  self.soundMenuOpen = sound
+end
+
+function Fewatsu:destroy() -- TODO: function that sets everything in this fewatsu instance to nil
+  self = nil
 end
