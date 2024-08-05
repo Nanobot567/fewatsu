@@ -8,6 +8,11 @@ local gfx <const> = playdate.graphics
 local darkmode = false
 
 fewatsu = Fewatsu:init()
+fewatsu:setMenuAutoAdd(false)
+fewatsu:addMenuItem("manual", "Here are")
+fewatsu:addMenuItem("page2", "custom menu")
+fewatsu:addMenuItem("page3", "items!")
+fewatsu:addMenuItem("page4")
 
 function pd.update()
   gfx.clear()

@@ -8,6 +8,9 @@ local menu = fewatsu_menu
 local listview = playdate.ui.gridview.new(0, 20)
 listview:setCellPadding(4, 4, 2, 2)
 
+local menuOptions
+local menuItemPaths
+
 function listview:drawCell(section, row, column, selected, x, y, width, height)
   if selected then
     gfx.fillRoundRect(x, y, width, 20, 4)
@@ -29,11 +32,21 @@ menu.width = 120
 function menu.open(fewatsuInstance, currentItem, options, callback) -- it's probably bad that i'm passing in self here.. but meh lol
   listview:removeHorizontalDividers()
   menuOptions = { "*" .. menu.titleItemText .. "*", menu.EXIT_ITEM_TEXT}
+  menuItemPaths = {}
   listview:addHorizontalDividerAbove(1, 2)
 
-  for i = #options, 1, -1 do
-    table.insert(menuOptions, 2, options[i])
+  for i, v in ipairs(options) do
+    local disp = options[i]["pageTitle"]
+    if options[i]["displayName"] then
+      disp = options[i]["displayName"]
+    end
+
+    table.insert(menuOptions, #menuOptions, disp)
+
+    table.insert(menuItemPaths, options[i]["path"])
   end
+
+  table.insert(menuItemPaths, menu.EXIT_ITEM_TEXT)
 
   listview:addHorizontalDividerAbove(1, #menuOptions)
 
@@ -74,7 +87,7 @@ function menu.update()
     if pd.buttonJustPressed("a") then
       menu.soundClick:play()
 
-      menu.selectedItem = menuOptions[listview:getSelectedRow()]
+      menu.selectedItem = menuItemPaths[listview:getSelectedRow() - 1]
 
       if menu.selectedItem == menu.EXIT_ITEM_TEXT then
         menu.close()

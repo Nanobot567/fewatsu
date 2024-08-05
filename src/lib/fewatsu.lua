@@ -102,6 +102,8 @@ function Fewatsu:init(workingDirectory)
   self.animatorEaseFunction = pd.easingFunctions.outExpo
 
   self.menuAnimator = gfx.animator.new(0, self.menuWidth, self.menuWidth)
+  self.menuAutoItemAdd = true
+  self.menuItems = {}
 
   self.inputDelayTimer = nil
 
@@ -133,11 +135,13 @@ function Fewatsu:init(workingDirectory)
   self.soundSelect = pd.sound.sampleplayer.new(FEWATSU_LIB_PATH .. "fewatsu/snd/select")
   self.soundMenuOpen = pd.sound.sampleplayer.new(FEWATSU_LIB_PATH .. "fewatsu/snd/menu_open")
 
+  self.displayScrollbar = true
+
   self.scrollbarBackgroundImage = gfx.image.new(FEWATSU_LIB_PATH .. "fewatsu/img/scrollbar-bg")
   self.scrollbarSmallImage = gfx.image.new(FEWATSU_LIB_PATH .. "fewatsu/img/scrollbar-small")
-
   self.scrollbarAnimator = gfx.animator.new(0, 0, 0)
   self.scrollbarShownTimer = pd.timer.new(0)
+  self.scrollbarTimeout = 750
 
   self.scrollbarTimerEndedCallback = function()
     self.scrollbarAnimator = gfx.animator.new(100, 20, 0)
@@ -162,7 +166,7 @@ function Fewatsu:init(workingDirectory)
   return self
 end
 
----Parses the given JSON file and sets the current manual page to the image generated. Returns the image.
+---Parses the given JSON file and sets the current manual page to the image generated. Refer to the Fewatsu FORMAT.md doc for more information.
 ---
 ---@param json table
 ---@return playdate.image
@@ -661,24 +665,46 @@ function Fewatsu:update(force)
         end
       end
     elseif pd.buttonJustPressed("b") then
+      local menuItemIndex = 1
       local menuOptions = {}
 
-      for k, v in pairs(self.titlesToPaths) do
-        table.insert(menuOptions, k)
-      end
+      if self.menuAutoItemAdd then
+        for i, v in ipairs(pd.file.listFiles(self.cwd)) do
+          if string.sub(v, #v - 4) == ".json" then
+            local fileJSON = json.decodeFile(self.cwd .. v)
 
-      table.sort(menuOptions)
-
-      fewatsu_menu.open(self, table.indexOfElement(menuOptions, self.title), menuOptions, function(item)
-        if item == fewatsu_menu.EXIT_ITEM_TEXT then
-          self:hide()
-        elseif item ~= nil then
-          if item ~= self.title then
-            self:loadFile(self.titlesToPaths[item])
+            table.insert(menuOptions, {
+              path = self.cwd .. v,
+              pageTitle = fileJSON["title"]
+            })
           end
         end
 
+        table.sort(menuOptions, function(a, b)
+          return a["pageTitle"] < b["pageTitle"]
+        end)
+      else
+        menuOptions = self.menuItems
+      end
+
+      self.scrollbarShownTimer:pause()
+
+      for i, v in ipairs(menuOptions) do
+        if v["path"] == self.path then
+          menuItemIndex = i
+          break
+        end
+      end
+
+      fewatsu_menu.open(self, menuItemIndex, menuOptions, function(item)
+        if item == fewatsu_menu.EXIT_ITEM_TEXT then
+          self:hide()
+        elseif item ~= nil then
+          self:loadFile(item)
+        end
+
         self.inputDelayTimer = pd.timer.new(10)
+        self.scrollbarShownTimer:start()
 
         self:update(true)
       end)
@@ -841,13 +867,13 @@ function Fewatsu:update(force)
       scrollbarY = 0
     end
 
-    if oldOffset ~= self.offset then
+    if oldOffset ~= self.offset and math.abs(self.offset - oldOffset) > 3 then
       if self.scrollbarAnimator:currentValue() == 0 and self.scrollbarShownTimer.timeLeft == 0 then
         self.scrollbarAnimator = gfx.animator.new(100, 0, 20)
       end
 
       self.scrollbarShownTimer:remove()
-      self.scrollbarShownTimer = pd.timer.new(1000, self.scrollbarTimerEndedCallback)
+      self.scrollbarShownTimer = pd.timer.new(self.scrollbarTimeout, self.scrollbarTimerEndedCallback)
     end
   end
 
@@ -873,7 +899,7 @@ function Fewatsu:_drawObjectSelector(selected)
   elseif selected["type"] == "image" then
     local index = selected["i"]
 
-    gfx.setLineWidth(3)
+    gfx.setLineWidth(4)
     gfx.drawRect(self.imgXs[index], self.imgYs[index] - self.offset, self.imgWidths[index], self.imgHeights[index])
     gfx.setLineWidth(1)
   end
@@ -933,18 +959,27 @@ end
 
 ---Shorthand function for loading a JSON file into Fewatsu.
 ---
+---Returns the generated image.
+---
 ---@param file string
+---@return playdate.graphics.image
 function Fewatsu:loadFile(file)
   local path = getExistentPath(self.cwd, file)
-
   if path ~= nil then
-    self:load(json.decodeFile(path))
-  else
-    error("could not load file " .. file)
+    self.path = path
+
+    local decodedFile = json.decodeFile(path)
+
+    if decodedFile then
+      return self:load(decodedFile)
+    end
   end
+  error("could not load file " .. file)
 end
 
 ---Sets the current working directory. Fewatsu can use this to call for images and JSON files without using the absolute path.
+---
+---By default, the working directory is set to `/manual/`.
 ---
 ---Returns `true` on success, `false` on failure.
 ---
@@ -1193,7 +1228,7 @@ end
 ---Defaults to `true`.
 ---
 ---@param status boolean
-function Fewatsu:playBGM(status)
+function Fewatsu:setPlayBGM(status)
   self.playBGM = status
 end
 
@@ -1214,6 +1249,84 @@ end
 function Fewatsu:setBGMFade(fadetime)
   self.backgroundMusicFadeTime = fadetime
 end
+
+---Sets if the scroll bar should be displayed when the user scrolls through the Fewatsu document.
+---
+---See `:setScrollBarBackgroundImage()` and `:setScrollBarImage()` to customize the scroll bar.
+---
+---Defaults to `true`.
+---
+---@param display boolean
+function Fewatsu:setDisplayScrollBar(display)
+  self.displayScrollbar = display
+end
+
+---Sets the amount of time after user input has stopped to retract the scroll bar.
+---
+---Defaults to `750`ms.
+---
+---@param ms any
+function Fewatsu:setScrollBarTimeout(ms)
+  self.scrollbarTimeout = ms
+end
+
+---Sets the image to use for the scroll bar.
+---
+---The image should be 20 pixels wide, and up to 160 pixels tall. For the best results, add two or so pixels of padding to every side of the image.
+---
+---@param image playdate.graphics.image
+function Fewatsu:setScrollBarImage(image)
+  self.scrollbarSmallImage = image
+end
+
+---Sets the image to use for the scroll bar background.
+---
+---The image should be 20 pixels wide and 240 pixels tall.
+---
+---@param image playdate.graphics.image
+function Fewatsu:setScrollBarBackgroundImage(image)
+  self.scrollbarBackgroundImage = image
+end
+
+---Enables or disables the automatic adding of pages to the Fewatsu menu. 
+---
+---By default, the menu will add all of the valid Fewatsu JSON files in the current working directory.
+---
+---To customize the menu manually, see `:addMenuItem()`, `:removeMenuItem()` and `:clearMenuItems()`.
+---
+---@param enable boolean
+function Fewatsu:setMenuAutoAdd(enable)
+  self.menuAutoItemAdd = enable
+end
+
+---Adds a page to the Fewatsu menu.
+---
+---`path` can be either an absolute path to the file or the path from Fewatsu's current working directory. Looks for [path], then [path].json.
+---`displayName` can be provided if you would like the item to have a different display name than the default (the page's title). 
+---
+---@param path string
+---@param displayName? string
+function Fewatsu:addMenuItem(path, displayName)
+  local origPath = path
+  local path = getExistentPath(self.cwd, path)
+
+  if path == nil then
+    path = getExistentPath(self.cwd, origPath .. ".json")
+  end
+
+  if path ~= nil then
+    local fileData = json.decodeFile(path)
+
+    table.insert(self.menuItems, {
+      pageTitle = fileData["title"],
+      path = path,
+      displayName = displayName
+    })
+  else
+    error("could not load file at " .. path)
+  end
+end
+
 
 function Fewatsu:destroy() -- TODO: function that sets everything in this fewatsu instance to nil
   self = nil

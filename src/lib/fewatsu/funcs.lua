@@ -76,9 +76,9 @@ end
 
 -- returns the path which exists, first trying from `cwd`, then trying as an absolute path
 function getExistentPath(cwd, path)
-  if pd.file.exists(cwd .. path) then
+  if pd.file.exists(cwd .. path) and not pd.file.isdir(cwd .. path) then
     return cwd .. path
-  elseif pd.file.exists(path) then
+  elseif pd.file.exists(path) and not pd.file.isdir(path) then
     return path
   else
     return nil
