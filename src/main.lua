@@ -8,11 +8,6 @@ local gfx <const> = playdate.graphics
 local darkmode = false
 
 fewatsu = Fewatsu:init()
-fewatsu:setMenuAutoAdd(false)
-fewatsu:addMenuItem("manual", "Here are")
-fewatsu:addMenuItem("page2", "custom menu")
-fewatsu:addMenuItem("page3", "items!")
-fewatsu:addMenuItem("page4")
 
 function pd.update()
   gfx.clear()
@@ -21,8 +16,8 @@ function pd.update()
 end
 
 function pd.AButtonDown()
-  fewatsu:loadFile("manual/manual.json")
   fewatsu:show()
+  fewatsu:loadFile("manual/manual.json")
 end
 
 function pd.BButtonDown()

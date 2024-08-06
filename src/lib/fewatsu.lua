@@ -9,6 +9,7 @@ import "fewatsu/funcs"
 import "fewatsu/imageViewer"
 import "fewatsu/menu"
 import "fewatsu/animatedImage"
+import "fewatsu/loadScreen"
 
 local pd <const> = playdate
 local gfx <const> = playdate.graphics
@@ -97,6 +98,8 @@ function Fewatsu:init(workingDirectory)
 
   self.offset = 0
 
+  self.shown = false
+
   self.offsetAnimator = nil
   self.animatorEaseTime = 350
   self.animatorEaseFunction = pd.easingFunctions.outExpo
@@ -125,6 +128,11 @@ function Fewatsu:init(workingDirectory)
   self.preUpdate = nil
   self.postUpdate = nil
   self.callback = nil
+
+  self.displayLoadingScreen = true
+  self.loadingScreenText = true
+  self.loadingScreenTextAlignment = kTextAlignment.right
+  self.loadingScreenSpinner = true
 
   self.backgroundMusic = pd.sound.fileplayer.new(FEWATSU_LIB_PATH .. "fewatsu/snd/bgm")
   self.backgroundMusicVolume = 0.1
@@ -196,7 +204,6 @@ function Fewatsu:load(json)
   self.scrollbarAnimator = gfx.animator.new(0, 0, 0)
   self.scrollbarShownTimer = pd.timer.new(0)
 
-
   self.headerYs = {}
 
   self.offset = 0
@@ -220,9 +227,17 @@ function Fewatsu:load(json)
     end
   end
 
+  if self.shown and self.displayLoadingScreen then
+    fewatsu_loadScreen.init(self)
+  end
+
   self.elements = elements
 
   for i, element in ipairs(elements) do
+    if self.shown and self.displayLoadingScreen then
+      fewatsu_loadScreen.step("parsing " .. element["type"] .. "...")
+    end
+
     table.insert(elementYs, currentY)
 
     elemType = element["type"]
@@ -335,6 +350,10 @@ function Fewatsu:load(json)
 
           scale = 1
         else
+          if self.shown and self.displayLoadingScreen then
+            fewatsu_loadScreen.step("loading animated image, please wait...")
+          end
+
           self.animatedImages[currentY] = AnimatedImage(imgpath, element["scale"], element["delay"])
 
           img = self.animatedImages[currentY]:getCurrentFrame()
@@ -391,6 +410,10 @@ function Fewatsu:load(json)
     end
   end
 
+  if self.shown and self.displayLoadingScreen then
+    fewatsu_loadScreen.step("pushing document image context...")
+  end
+
   local currentElementY = 0
 
   self.documentImage = gfx.image.new(400, currentY + 10)
@@ -404,11 +427,13 @@ function Fewatsu:load(json)
   local origColor = gfx.getColor()
   local color = gfx.kColorBlack
   local imageDrawMode = gfx.kDrawModeCopy
+  local altColor = gfx.kColorWhite
 
   gfx.clear(gfx.kColorWhite)
 
   if self.darkMode then
     color = gfx.kColorWhite
+    altColor = gfx.kColorBlack
     imageDrawMode = gfx.kDrawModeInverted
     gfx.clear(gfx.kColorBlack)
   end
@@ -419,6 +444,15 @@ function Fewatsu:load(json)
   for elementI, element in ipairs(elements) do -- draw
     elemType = element["type"]
     currentElementY = table.remove(elementYs, 1)
+
+    if self.shown and self.displayLoadingScreen then
+      gfx.popContext()
+      fewatsu_loadScreen.step("drawing " .. elemType .. " @ " .. math.floor(currentElementY) .. "...")
+      gfx.pushContext(self.documentImage)
+
+      gfx.setColor(color)
+      gfx.setImageDrawMode(imageDrawMode)
+    end
 
     if elemType == "title" or elemType == "heading" or elemType == "subheading" or elemType == "text" or elemType == "link" then
       if element["x"] == nil then
@@ -641,7 +675,7 @@ function Fewatsu:update(force)
               self.offset = self.documentImage.height - 240
             else
               if self.documentImage.height > 240 then
-                self.offset = self.headerYs[location[2]]
+                self.offset = self.headerYs[location[2]] - 4
 
                 if self.offset > self.documentImage.height - 240 then
                   self.offset = self.documentImage.height - 240
@@ -697,13 +731,14 @@ function Fewatsu:update(force)
       end
 
       fewatsu_menu.open(self, menuItemIndex, menuOptions, function(item)
+        self.inputDelayTimer = pd.timer.new(10)
+
         if item == fewatsu_menu.EXIT_ITEM_TEXT then
           self:hide()
-        elseif item ~= nil then
+        elseif item ~= nil and item ~= self.path then
           self:loadFile(item)
         end
 
-        self.inputDelayTimer = pd.timer.new(10)
         self.scrollbarShownTimer:start()
 
         self:update(true)
@@ -915,6 +950,8 @@ end
 function Fewatsu:show()
   self.offset = 0
 
+  self.shown = true
+
   self.originalRefreshRate = pd.display.getRefreshRate()
   self.originalDisplayInvertedMode = pd.display.getInverted()
 
@@ -951,6 +988,8 @@ function Fewatsu:hide()
       self:stop()
     end)
   end
+
+  self.shown = false
 
   if self.callback then
     self.callback()
@@ -1228,7 +1267,7 @@ end
 ---Defaults to `true`.
 ---
 ---@param status boolean
-function Fewatsu:setPlayBGM(status)
+function Fewatsu:setEnableBGM(status)
   self.playBGM = status
 end
 
@@ -1256,9 +1295,9 @@ end
 ---
 ---Defaults to `true`.
 ---
----@param display boolean
-function Fewatsu:setDisplayScrollBar(display)
-  self.displayScrollbar = display
+---@param enable boolean
+function Fewatsu:setEnableScrollBar(enable)
+  self.displayScrollbar = enable
 end
 
 ---Sets the amount of time after user input has stopped to retract the scroll bar.
@@ -1327,6 +1366,50 @@ function Fewatsu:addMenuItem(path, displayName)
   end
 end
 
+---Sets if a loading screen should be displayed on document load and Fewatsu is currently shown.
+---
+---Please note that this reduces load times.
+---
+---Defaults to `true`.
+---
+---@param enable boolean
+function Fewatsu:setEnableLoadingScreen(enable)
+  self.displayLoadingScreen = enable
+end
+
+---Sets if loading screens should display text detailing the current action on the bottom of the screen.
+---
+---The loading screen must be enabled for this to take effect. See `Fewatsu:setEnableLoadingScreen()` for more details.
+---
+---Defaults to `true`.
+---
+---@param show boolean
+function Fewatsu:setLoadingScreenShowText(show)
+  self.loadingScreenText = show
+end
+
+---Sets how the loading screen bottom information text should be aligned. Can be any `kTextAlignment` or integer from 0 to 2.
+---
+---The loading screen must be enabled for this to take effect. See `Fewatsu:setEnableLoadingScreen()` for more details.
+---Loading screen text must be enabled for this to take effect. See `Fewatsu:setLoadingScreenShowText()` for more details.
+---
+---Defaults to `kTextAlignment.right`.
+---
+---@param alignment integer
+function Fewatsu:setLoadingScreenTextAlignment(alignment)
+  self.loadingScreenTextAlignment = alignment
+end
+
+---Sets if loading screens should display a spinner in the center of the screen.
+---
+---The loading screen must be enabled for this to take effect. See `Fewatsu:setEnableLoadingScreen()` for more details.
+---
+---Defaults to `true`.
+---
+---@param show boolean
+function Fewatsu:setLoadingScreenShowSpinner(show)
+  self.loadingScreenSpinner = show
+end
 
 function Fewatsu:destroy() -- TODO: function that sets everything in this fewatsu instance to nil
   self = nil
