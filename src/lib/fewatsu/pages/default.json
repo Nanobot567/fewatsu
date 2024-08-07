@@ -1,0 +1,11 @@
+{
+  "title": "Fewatsu",
+  "data": [
+    {
+      "type": "title",
+      "text": "Fewatsu"
+    },
+    "Fewatsu is a simple yet robust electronic manual library for *Playdate*.",
+    "If you are seeing this, then nothing has been loaded into Fewatsu yet! Check that your code is calling either a *Fewatsu:load()* or *Fewatsu:loadFile()*. If you're confused, check out the documentation online!"
+  ]
+}

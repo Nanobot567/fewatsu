@@ -1,0 +1,19 @@
+{
+  "title": "Fewatsu Help",
+  "data": [
+    {
+      "type": "title",
+      "text": "Fewatsu Help"
+    },
+    {
+      "type": "heading",
+      "text": "Table of Contents"
+    },
+    {
+      "type": "heading",
+      "text": "Fewatsu Navigation"
+    },
+    "Pages in Fewatsu are navigated using up [[up]], down [[down]], and the crank [[crank]].",
+    "A side menu, which usually contains more important pages, is accessible using [[b]]."
+  ]
+}

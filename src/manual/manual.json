@@ -92,8 +92,29 @@
       "type": "image",
       "source": "manual/thisdoesntexist"
     },
+    "page break",
     {
       "type": "break"
+    },
+    "qr code",
+    {
+      "type": "qr",
+      "data": "https://example.com/",
+      "alignment": "center"
+    },
+    {
+      "type": "quote",
+      "text": "https://example.com/"
+    },
+    "larger qr code",
+    {
+      "type": "qr",
+      "data": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "alignment": "center"
+    },
+    {
+      "type": "quote",
+      "text": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
     },
     {
       "type": "link",

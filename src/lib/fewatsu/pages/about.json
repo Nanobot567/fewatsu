@@ -1,0 +1,23 @@
+{
+  "title": "About Fewatsu",
+  "data": [
+    {
+      "type": "title",
+      "text": "About Fewatsu"
+    },
+    "Fewatsu is a manual library for the *Playdate console*, created by nanobot567.",
+    {
+      "type": "heading",
+      "text": "Source code and Documentation"
+    },
+    "Fewatsu's source code and documentation is available at *https://github.com/nanobot567/fewatsu*.",
+    {
+      "type": "break"
+    },
+    {
+      "type": "text",
+      "text": "thanks for using Fewatsu! :)",
+      "alignment": "center"
+    }
+  ]
+}

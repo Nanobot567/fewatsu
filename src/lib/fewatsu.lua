@@ -4,6 +4,7 @@ import "CoreLibs/animator"
 import "CoreLibs/object"
 import "CoreLibs/timer"
 import "CoreLibs/ui"
+import "CoreLibs/qrcode"
 
 import "fewatsu/funcs"
 import "fewatsu/imageViewer"
@@ -13,6 +14,7 @@ import "fewatsu/loadScreen"
 
 local pd <const> = playdate
 local gfx <const> = playdate.graphics
+local playdateMenu <const> = playdate.getSystemMenu()
 
 local FEWATSU_LIB_PATH = getScriptPath()
 
@@ -20,18 +22,7 @@ local FEWATSU_X = 0
 local FEWATSU_WIDTH = 400
 local FEWATSU_LISTINDENT = 20
 
-local FEWATSU_DEFAULT_DATA = {
-  title = "Fewatsu",
-  id = "main",
-  data = {
-    {
-      type = "title",
-      text = "Fewatsu",
-    },
-    "Fewatsu is an electronic manual library for *Playdate*.",
-    "If you are seeing this, then nothing has been loaded into Fewatsu yet! Check that your code is calling either a *fewatsu:load()* or *fewatsu:loadFile()*. If you're confused, check out the documentation online!"
-  }
-}
+local FEWATSU_DEFAULT_DATA = json.decodeFile(FEWATSU_LIB_PATH .. "/fewatsu/pages/default.json")
 
 ---@class Fewatsu
 ---@field private selectedObject number
@@ -56,7 +47,6 @@ local FEWATSU_DEFAULT_DATA = {
 ---@field private originalRefreshRate number
 ---@field private originalDisplayInvertedMode number
 ---@field private animatedImages table
----
 ---@field font playdate.graphics.font|_Font The font used for drawing plaintext.
 ---@field headingFont playdate.graphics.font|_Font The font used for drawing headings.
 ---@field subheadingFont playdate.graphics.font|_Font The font used for drawing subheadings.
@@ -174,11 +164,11 @@ function Fewatsu:init(workingDirectory)
   return self
 end
 
----Parses the given JSON file and sets the current manual page to the image generated. Refer to the Fewatsu FORMAT.md doc for more information.
+---Parses the given table (if valid) and sets the current manual page to the image generated. Refer to the Fewatsu FORMAT.md doc for more information.
 ---
----@param json table
+---@param data table
 ---@return playdate.image
-function Fewatsu:load(json)
+function Fewatsu:load(data)
   self.linkXs = {}
   self.linkYs = {}
   self.linkWidths = {}
@@ -191,6 +181,8 @@ function Fewatsu:load(json)
   self.imgHeights = {}
   self.imgPaths = {}
   self.imgCaptions = {}
+
+  self.qrCodes = {}
 
   if self.animatedImages then
     for k, v in pairs(self.animatedImages) do
@@ -211,13 +203,13 @@ function Fewatsu:load(json)
   self.elements = {}
 
   local currentY = self.topPadding
-  local elements = json["data"]
+  local elements = data["data"]
   local elementYs = {}
   local textHeights = {}
   local processedLists = {}
   local elemType = ""
 
-  self.title = json["title"]
+  self.title = data["title"]
 
   for i, element in ipairs(elements) do -- preprocessing for string elements
     if type(element) == "string" then
@@ -318,9 +310,9 @@ function Fewatsu:load(json)
       table.insert(textHeights, texth)
 
       currentY = currentY + texth + 10
-    elseif elemType == "quote" then
+    elseif elemType == "quote" then -- TODO: maybe needs fixing for larger text padding
       local textw, texth = gfx.getTextSizeForMaxWidth(element["text"],
-        FEWATSU_WIDTH - (self.quoteBoxPadding * 2) - (self.rightPadding + self.leftPadding) - 4)
+        FEWATSU_WIDTH - (self.quoteBoxPadding * 2) - (self.rightPadding + self.leftPadding) - 8)
 
       table.insert(textHeights, texth)
 
@@ -401,6 +393,26 @@ function Fewatsu:load(json)
       end
 
       currentY = currentY + 20 + element["linewidth"]
+    elseif elemType == "qr" then
+      local waitingForQR = true
+
+      if self.shown and self.displayLoadingScreen then
+        fewatsu_loadScreen.step("generating qr code...")
+
+        pd.display.flush()
+      end
+
+      gfx.generateQRCode(element["data"], element["desiredEdgeDimension"], function(qrcode)
+        waitingForQR = false
+
+        table.insert(self.qrCodes, qrcode)
+
+        currentY = currentY + qrcode.height + 10
+      end)
+
+      while waitingForQR do
+        pd.timer.updateTimers()
+      end
     end
 
     if elements[i + 1] then
@@ -513,9 +525,9 @@ function Fewatsu:load(json)
 
       gfx.drawRoundRect(rect, radius)
 
-      rect.x = rect.x + 2
-      rect.y = rect.y + 2
-      rect.width = rect.width - 4
+      rect.x = rect.x + 4
+      rect.y = rect.y + 4
+      rect.width = rect.width - 8
 
       gfx.drawTextInRect(element["text"], rect, nil, nil, kTextAlignment.center)
 
@@ -581,6 +593,16 @@ function Fewatsu:load(json)
         gfx.drawLine(FEWATSU_X + self.leftPadding + 20, currentElementY, FEWATSU_WIDTH - self.rightPadding - 20,
           currentElementY)
         gfx.setLineWidth(1)
+      end
+    elseif elemType == "qr" then
+      local img = table.remove(self.qrCodes, 1)
+
+      if element["alignment"] == "center" then
+        img:draw(200 - (img.width / 2), currentElementY)
+      elseif element["alignment"] == "right" then
+        img:draw(400 - self.rightPadding - img.width, currentElementY)
+      else
+        img:draw(0, currentElementY)
       end
     end
   end
@@ -944,7 +966,9 @@ end
 
 ---Displays Fewatsu.
 ---
----Executing this function replaces the current `playdate.update` function, pushes new input handlers, and changes the display refresh rate. To restore, call `Fewatsu:hide()`.
+---Executing this function replaces the current `playdate.update` function, pushes new input handlers, and changes the display refresh rate. To restore, call `:hide()`.
+---
+---All `playdate.menu` items will also be cleared. To restore these, set a callback function using `:setCallback()` containing instructions to restore the previous menu items.
 ---
 ---@return nil
 function Fewatsu:show()
@@ -957,6 +981,16 @@ function Fewatsu:show()
 
   pd.display.setRefreshRate(50)
   pd.display.setInverted(false)
+
+  playdateMenu:removeAllMenuItems()
+
+  playdateMenu:addMenuItem("about...", function()
+    self:loadFile(FEWATSU_LIB_PATH .. "/fewatsu/pages/about.json")
+  end)
+
+  playdateMenu:addMenuItem("help...", function()
+    self:loadFile(FEWATSU_LIB_PATH .. "/fewatsu/pages/help.json")
+  end)
 
   self.inputDelayTimer = pd.timer.new(10)
 
@@ -982,6 +1016,8 @@ function Fewatsu:hide()
 
   pd.display.setRefreshRate(self.originalRefreshRate)
   pd.display.setInverted(self.originalDisplayInvertedMode)
+
+  playdateMenu:removeAllMenuItems()
 
   if self.playBGM then
     self.backgroundMusic:setVolume(0, 0, self.backgroundMusicFadeTime, function (self)
@@ -1076,14 +1112,14 @@ function Fewatsu:setCallback(callback)
   self.callback = callback
 end
 
----Sets the function that is called before any processing happens in `Fewatsu:update()`.
+---Sets the function that is called before any processing happens in `:update()`.
 ---
 ---@param func function
 function Fewatsu:setPreUpdate(func)
   self.preUpdate = func
 end
 
----Sets the function that is called after all processing in `Fewatsu:update()`.
+---Sets the function that is called after all processing in `:update()`.
 ---
 ---@param func function
 function Fewatsu:setPostUpdate(func)
@@ -1223,7 +1259,7 @@ function Fewatsu:setQuoteBoxPadding(px)
   self.quoteBoxPadding = px
 end
 
----Set if dark theme should be used. Doesn't apply to images, and is only applied on `Fewatsu:load()`.
+---Set if dark theme should be used. Doesn't apply to images, and is only applied on `:load()`.
 ---
 ---Defaults to `false`.
 ---
@@ -1341,6 +1377,7 @@ end
 ---Adds a page to the Fewatsu menu.
 ---
 ---`path` can be either an absolute path to the file or the path from Fewatsu's current working directory. Looks for [path], then [path].json.
+---
 ---`displayName` can be provided if you would like the item to have a different display name than the default (the page's title). 
 ---
 ---@param path string
@@ -1379,7 +1416,7 @@ end
 
 ---Sets if loading screens should display text detailing the current action on the bottom of the screen.
 ---
----The loading screen must be enabled for this to take effect. See `Fewatsu:setEnableLoadingScreen()` for more details.
+---The loading screen must be enabled for this to take effect. See `:setEnableLoadingScreen()` for more details.
 ---
 ---Defaults to `true`.
 ---
@@ -1390,8 +1427,9 @@ end
 
 ---Sets how the loading screen bottom information text should be aligned. Can be any `kTextAlignment` or integer from 0 to 2.
 ---
----The loading screen must be enabled for this to take effect. See `Fewatsu:setEnableLoadingScreen()` for more details.
----Loading screen text must be enabled for this to take effect. See `Fewatsu:setLoadingScreenShowText()` for more details.
+---The loading screen must be enabled for this to take effect. See `:setEnableLoadingScreen()` for more details.
+---
+---Loading screen text must be enabled for this to take effect. See `:setLoadingScreenShowText()` for more details.
 ---
 ---Defaults to `kTextAlignment.right`.
 ---
@@ -1402,7 +1440,7 @@ end
 
 ---Sets if loading screens should display a spinner in the center of the screen.
 ---
----The loading screen must be enabled for this to take effect. See `Fewatsu:setEnableLoadingScreen()` for more details.
+---The loading screen must be enabled for this to take effect. See `:setEnableLoadingScreen()` for more details.
 ---
 ---Defaults to `true`.
 ---
