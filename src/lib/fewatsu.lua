@@ -112,6 +112,7 @@ function Fewatsu:init(workingDirectory)
   self.path = ""
 
   self.elements = {}
+  self.cachedQRCodes = {}
 
   self.darkMode = false
 
@@ -286,11 +287,11 @@ function Fewatsu:load(data)
       if not element["y"] then
         currentY = currentY + texth + 10
       end
-    elseif elemType == "orderedlist" or elemType == "unorderedlist" then
+    elseif elemType == "list" then
       local temp = {}
       local text = ""
 
-      if elemType == "orderedlist" then
+      if element["ordered"] == true then
         for listi, item in ipairs(element["items"]) do
           table.insert(temp, "*" .. tostring(listi) .. ".* " .. item)
         end
@@ -396,22 +397,39 @@ function Fewatsu:load(data)
     elseif elemType == "qr" then
       local waitingForQR = true
 
-      if self.shown and self.displayLoadingScreen then
-        fewatsu_loadScreen.step("generating qr code...")
+      if self.cachedQRCodes[element["data"]] then
+        if self.shown and self.displayLoadingScreen then
+          fewatsu_loadScreen.step("using cached qr code...")
+          pd.display.flush()
+        end
 
-        pd.display.flush()
-      end
+        table.insert(self.qrCodes, self.cachedQRCodes[element["data"]])
 
-      gfx.generateQRCode(element["data"], element["desiredEdgeDimension"], function(qrcode)
-        waitingForQR = false
+        currentY = currentY + self.qrCodes[#self.qrCodes].height + 10
+      else
 
-        table.insert(self.qrCodes, qrcode)
+        if self.shown and self.displayLoadingScreen then
+          pd.display.setInverted(false)
+          fewatsu_loadScreen.step("generating qr code...")
+          pd.display.flush()
+          pd.display.setInverted(true)
+        end
 
-        currentY = currentY + qrcode.height + 10
-      end)
+        gfx.generateQRCode(element["data"], element["desiredEdgeDimension"], function(qrcode)
+          waitingForQR = false
 
-      while waitingForQR do
-        pd.timer.updateTimers()
+          table.insert(self.qrCodes, qrcode)
+
+          if not self.cachedQRCodes[element["data"]] then
+            self.cachedQRCodes[element["data"]] = qrcode:copy()
+          end
+
+          currentY = currentY + qrcode.height + 10
+        end)
+
+        while waitingForQR do
+          pd.timer.updateTimers()
+        end
       end
     end
 
@@ -514,7 +532,7 @@ function Fewatsu:load(data)
     elseif elemType == "text" then
       gfx.drawTextInRect(element["text"], element["x"], currentElementY, element["width"], table.remove(textHeights, 1),
         nil, nil, element["alignment"])
-    elseif elemType == "orderedlist" or elemType == "unorderedlist" then
+    elseif elemType == "list" then
       gfx.drawTextInRect(table.remove(processedLists, 1), self.leftPadding + FEWATSU_LISTINDENT, currentElementY,
         FEWATSU_WIDTH - FEWATSU_LISTINDENT - self.rightPadding - self.leftPadding, table.remove(textHeights, 1))
     elseif elemType == "quote" then
@@ -848,13 +866,7 @@ function Fewatsu:update(force)
     local passed = false -- better variable name for this lol
     local drawSelector = false
 
-    if self.documentImage.height - 20 <= self.offset and self.offset >= self.documentImage.height + 20 then
-      selected = visibleObjects[#visibleObjects]
-
-      self.selectedObject = selected
-
-      drawSelector = true
-    elseif #selectableObjects ~= 0 then
+    if #selectableObjects ~= 0 then
       if pd.buttonJustPressed("left") then
         local index = 0
         for i, v in ipairs(visibleObjects) do
@@ -883,13 +895,17 @@ function Fewatsu:update(force)
         end
 
         if index + 1 > #visibleObjects then
-          selected = table.deepcopy(visibleObjects[#visibleObjects])
+          if visibleObjects[#visibleObjects] then
+            selected = table.deepcopy(visibleObjects[#visibleObjects])
 
-          passed = true
+            passed = true
+          end
         elseif index ~= 0 and index + 1 <= #visibleObjects then
-          selected = table.deepcopy(visibleObjects[index + 1])
+          if visibleObjects[index + 1] then
+            selected = table.deepcopy(visibleObjects[index + 1])
 
-          passed = true
+            passed = true
+          end
         end
       end
 
@@ -902,6 +918,12 @@ function Fewatsu:update(force)
           end
         end
       end
+
+      self.selectedObject = selected
+
+      drawSelector = true
+    elseif self.documentImage.height - 20 >= self.offset and self.offset <= self.documentImage.height + 20 then
+      selected = visibleObjects[#visibleObjects]
 
       self.selectedObject = selected
 
@@ -985,10 +1007,12 @@ function Fewatsu:show()
   playdateMenu:removeAllMenuItems()
 
   playdateMenu:addMenuItem("about...", function()
+    fewatsu_menu.close()
     self:loadFile(FEWATSU_LIB_PATH .. "/fewatsu/pages/about.json")
   end)
 
   playdateMenu:addMenuItem("help...", function()
+    fewatsu_menu.close()
     self:loadFile(FEWATSU_LIB_PATH .. "/fewatsu/pages/help.json")
   end)
 

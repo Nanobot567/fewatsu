@@ -29,7 +29,8 @@
     },
     "Icon test: [[a]] [[b]] [[up]] [[right]] [[down]] [[left]] [[dpad]] [[playdate]] [[crank]] [[menu]] [[lock]]",
     {
-      "type": "orderedlist",
+      "type": "list",
+      "ordered": true,
       "items": [
         "ordered",
         "list",
@@ -38,7 +39,7 @@
       ]
     },
     {
-      "type": "unorderedlist",
+      "type": "list",
       "items": [
         "unordered",
         "list",

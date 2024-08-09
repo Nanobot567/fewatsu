@@ -5,12 +5,39 @@
       "type": "title",
       "text": "About Fewatsu"
     },
-    "Fewatsu is a manual library for the *Playdate console*, created by nanobot567.",
+    "Fewatsu is an electronic manual library for the *Playdate console*.",
     {
       "type": "heading",
       "text": "Source code and Documentation"
     },
     "Fewatsu's source code and documentation is available at *https://github.com/nanobot567/fewatsu*.",
+    "Scan the QR code below to check it out!",
+    {
+      "type": "qr",
+      "data": "https://github.com/nanobot567/fewatsu/",
+      "alignment": "center"
+    },
+    {
+      "type": "heading",
+      "text": "Special Thanks"
+    },
+    "_in no particular order..._",
+    {
+      "type": "list",
+      "items": [
+        "My family",
+        "lil figurative",
+        "Trisagion Media",
+        "R.Y.E, as always, for being there. _i kasta ca taikatsu'y erise, kairera._",
+        "The Playdate Squad discord server"
+      ]
+    },
+    {
+      "type": "heading",
+      "text": "Credits"
+    },
+    "nanobot567 - programming, sound effects, background music",
+    "playdate squad discord members in the *#development-logs/fewatsu* thread - ideas and encouragement!",
     {
       "type": "break"
     },
