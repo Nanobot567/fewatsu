@@ -6,11 +6,15 @@ import "CoreLibs/timer"
 import "CoreLibs/ui"
 import "CoreLibs/qrcode"
 
+import "fewatsu/debug"
 import "fewatsu/funcs"
 import "fewatsu/imageViewer"
 import "fewatsu/menu"
 import "fewatsu/animatedImage"
 import "fewatsu/loadScreen"
+
+local dbg = fewatsu_debug
+dbg.enabled = false
 
 local pd <const> = playdate
 local gfx <const> = playdate.graphics
@@ -152,12 +156,15 @@ function Fewatsu:init(workingDirectory)
   self.scrollbarAnimator = gfx.animator.new(0, 0, 0)
   self.scrollbarShownTimer = pd.timer.new(0)
   self.scrollbarTimeout = 750
+  self.scrollbarLockedObject = nil
 
   self.scrollbarTimerEndedCallback = function()
     self.scrollbarAnimator = gfx.animator.new(100, 20, 0)
+    self.scrollbarLockedObject = self.selectedObject
     pd.timer.performAfterDelay(90, function()  -- FIX
       self:update(true)
       pd.display.flush()
+      self.scrollbarLockedObject = nil
     end)
   end
 
@@ -679,6 +686,8 @@ function Fewatsu:update(force)
     end
 
     if pd.buttonJustPressed("a") and self.allowInput then
+      dbg.log("A", "button")
+
       if self.selectedObject ~= nil and self.selectedObject ~= 0 then
         self.soundClick:play()
 
@@ -697,14 +706,20 @@ function Fewatsu:update(force)
 
             if path ~= nil then
               decodedFile = json.decodeFile(path)
+
+              self.path = path
+
+              dbg.log("path = " .. self.path, "path")
             else
-              local ids = {}
               for i, v in ipairs(pd.file.listFiles(self.cwd)) do
                 local dc = json.decodeFile(self.cwd .. v)
 
                 if dc ~= nil then
                   if (dc["id"] == location[1] and string.sub(location[1], #location[1] - 4) ~= ".json") or (v == location[1] or self.cwd .. v == location[1]) then
                     decodedFile = dc
+
+                    self.path = self.cwd .. v
+
                     break
                   end
                 end
@@ -751,6 +766,8 @@ function Fewatsu:update(force)
         end
       end
     elseif pd.buttonJustPressed("b") and self.allowInput then
+      dbg.log("displaying menu", "menu")
+
       local menuItemIndex = 1
       local menuOptions = {}
 
@@ -777,6 +794,8 @@ function Fewatsu:update(force)
 
       for i, v in ipairs(menuOptions) do
         if v["path"] == self.path then
+          dbg.log("found path: " .. self.path, "menu")
+
           menuItemIndex = i
           break
         end
@@ -819,11 +838,18 @@ function Fewatsu:update(force)
   end
 
   if force or self.offset ~= oldOffset or pd.buttonJustPressed("right") or pd.buttonJustPressed("left") or not self.scrollbarAnimator:ended() then
+    dbg.log("updating display", "update")
+
     selectableObjects = {}
     visibleObjects = {}
 
+    dbg.log("grabbing objects", "objects")
+
     for i, v in ipairs(self.linkYs) do
+      dbg.log({"self.offset: ", self.offset, " link: ", v}, "y vals")
+
       if v - self.offset < 120 and v - self.offset > -120 then
+        dbg.log({"passed selectable calculation"}, "objects")
         table.insert(selectableObjects, {
           type = "link",
           i = i,
@@ -833,6 +859,7 @@ function Fewatsu:update(force)
       end
 
       if v - self.offset < 220 and v - self.offset > -20 then
+        dbg.log({"passed visible calculation"}, "objects")
         table.insert(visibleObjects, {
           type = "link",
           i = i,
@@ -844,7 +871,7 @@ function Fewatsu:update(force)
 
     for i, v in ipairs(self.imgYs) do
       if not table.indexOfElement(table.getKeys(self.animatedImages), v) then
-        if v - self.offset < 120 and v - self.offset > -120 then
+        if v - self.offset < 129 and v - self.offset > -120 then
           table.insert(selectableObjects, {
             type = "image",
             i = i,
@@ -877,6 +904,10 @@ function Fewatsu:update(force)
     local selected
     local passed = false -- better variable name for this lol
     local drawSelector = false
+
+    dbg.log("checking for selectable objects", "objects")
+
+    dbg.log({"offset: ", self.offset, " doc height: ", self.documentImage.height})
 
     if #selectableObjects ~= 0 then
       if pd.buttonJustPressed("left") and self.allowInput then
@@ -934,17 +965,23 @@ function Fewatsu:update(force)
       self.selectedObject = selected
 
       drawSelector = true
-    elseif self.documentImage.height - 20 >= self.offset and self.offset <= self.documentImage.height + 20 then
+    elseif (self.documentImage.height - 40 <= self.offset + 240 and self.offset + 240 <= self.documentImage.height + 40) then
+      dbg.log("selecting last object in page", "objects")
+
       selected = visibleObjects[#visibleObjects]
 
       self.selectedObject = selected
 
       drawSelector = true
     else
+      dbg.log("no objects visible", "objects")
+
       self.selectedObject = nil
     end
 
-    if drawSelector and selected then
+    if self.scrollbarLockedObject then
+      self:_drawObjectSelector(self.scrollbarLockedObject)
+    elseif drawSelector and selected then
       self:_drawObjectSelector(selected)
     end
 
@@ -965,12 +1002,10 @@ function Fewatsu:update(force)
 
       self.scrollbarShownTimer:remove()
       self.scrollbarShownTimer = pd.timer.new(self.scrollbarTimeout, self.scrollbarTimerEndedCallback)
-
-      -- print(self.scrollbarShownTimer:currentValue(), pd.getCurrentTimeMilliseconds())
     end
   end
 
-  if self.documentImage.height > 240 then
+  if self.documentImage.height > 240 and self.scrollbarAnimator:currentValue() ~= 0 then
     self.scrollbarBackgroundImage:draw(400 - self.scrollbarAnimator:currentValue(), 0)
     self.scrollbarSmallImage:draw(400 - self.scrollbarAnimator:currentValue(), scrollbarY)
   end
