@@ -16,6 +16,15 @@ local pd <const> = playdate
 local gfx <const> = playdate.graphics
 local playdateMenu <const> = playdate.getSystemMenu()
 
+local BLANK_INPUT_HANDLERS = {
+  AButtonDown = function() end,
+  BButtonDown = function() end,
+  upButtonDown = function() end,
+  downButtonDown = function() end,
+  rightButtonDown = function() end,
+  leftButtonDown = function() end
+}
+
 local FEWATSU_LIB_PATH = getScriptPath()
 
 local FEWATSU_X = 0
@@ -116,6 +125,8 @@ function Fewatsu:init(workingDirectory)
 
   self.darkMode = false
 
+  self.allowInput = true
+
   self.preUpdate = nil
   self.postUpdate = nil
   self.callback = nil
@@ -144,7 +155,7 @@ function Fewatsu:init(workingDirectory)
 
   self.scrollbarTimerEndedCallback = function()
     self.scrollbarAnimator = gfx.animator.new(100, 20, 0)
-    pd.timer.performAfterDelay(90, function () -- FIX
+    pd.timer.performAfterDelay(90, function()  -- FIX
       self:update(true)
       pd.display.flush()
     end)
@@ -152,7 +163,7 @@ function Fewatsu:init(workingDirectory)
 
   if not workingDirectory then
     if pd.file.exists("manual/") then
-      workingDirectory = "manual/" -- TODO: note in docs that "manual/" is the default cwd if it exists
+      workingDirectory = "manual/"
     else
       workingDirectory = ""
     end
@@ -170,6 +181,8 @@ end
 ---@param data table
 ---@return playdate.image
 function Fewatsu:load(data)
+  self.allowInput = false
+
   self.linkXs = {}
   self.linkYs = {}
   self.linkWidths = {}
@@ -407,12 +420,9 @@ function Fewatsu:load(data)
 
         currentY = currentY + self.qrCodes[#self.qrCodes].height + 10
       else
-
         if self.shown and self.displayLoadingScreen then
-          pd.display.setInverted(false)
           fewatsu_loadScreen.step("generating qr code...")
           pd.display.flush()
-          pd.display.setInverted(true)
         end
 
         gfx.generateQRCode(element["data"], element["desiredEdgeDimension"], function(qrcode)
@@ -627,6 +637,8 @@ function Fewatsu:load(data)
 
   gfx.popContext()
 
+  self.allowInput = true
+
   return self.documentImage
 end
 
@@ -649,9 +661,9 @@ function Fewatsu:update(force)
 
   if self.inputDelayTimer == nil or self.inputDelayTimer.timeLeft == 0 then
     if self.documentImage.height >= 240 then
-      if pd.buttonIsPressed("down") then
+      if pd.buttonIsPressed("down") and self.allowInput then
         self.offset = self.offset + 10
-      elseif pd.buttonIsPressed("up") then
+      elseif pd.buttonIsPressed("up") and self.allowInput then
         self.offset = self.offset - 10
       end
 
@@ -666,7 +678,7 @@ function Fewatsu:update(force)
       end
     end
 
-    if pd.buttonJustPressed("a") then
+    if pd.buttonJustPressed("a") and self.allowInput then
       if self.selectedObject ~= nil and self.selectedObject ~= 0 then
         self.soundClick:play()
 
@@ -738,7 +750,7 @@ function Fewatsu:update(force)
           end
         end
       end
-    elseif pd.buttonJustPressed("b") then
+    elseif pd.buttonJustPressed("b") and self.allowInput then
       local menuItemIndex = 1
       local menuOptions = {}
 
@@ -820,7 +832,7 @@ function Fewatsu:update(force)
         })
       end
 
-      if v - self.offset < 380 and v - self.offset > -20 then
+      if v - self.offset < 220 and v - self.offset > -20 then
         table.insert(visibleObjects, {
           type = "link",
           i = i,
@@ -842,7 +854,7 @@ function Fewatsu:update(force)
           })
         end
 
-        if v - self.offset < 380 and v - self.offset > -20 then
+        if v - self.offset < 220 and v - self.offset > -20 then
           table.insert(visibleObjects, {
             type = "image",
             i = i,
@@ -867,7 +879,7 @@ function Fewatsu:update(force)
     local drawSelector = false
 
     if #selectableObjects ~= 0 then
-      if pd.buttonJustPressed("left") then
+      if pd.buttonJustPressed("left") and self.allowInput then
         local index = 0
         for i, v in ipairs(visibleObjects) do
           if v["y"] == self.selectedObject["y"] then
@@ -885,7 +897,7 @@ function Fewatsu:update(force)
 
           passed = true
         end
-      elseif pd.buttonJustPressed("right") then
+      elseif pd.buttonJustPressed("right") and self.allowInput then
         local index = 0
         for i, v in ipairs(visibleObjects) do
           if v["y"] == self.selectedObject["y"] then
@@ -953,6 +965,8 @@ function Fewatsu:update(force)
 
       self.scrollbarShownTimer:remove()
       self.scrollbarShownTimer = pd.timer.new(self.scrollbarTimeout, self.scrollbarTimerEndedCallback)
+
+      -- print(self.scrollbarShownTimer:currentValue(), pd.getCurrentTimeMilliseconds())
     end
   end
 
@@ -974,11 +988,12 @@ function Fewatsu:_drawObjectSelector(selected)
   gfx.setColor(gfx.kColorXOR)
 
   if selected["type"] == "link" then
-    gfx.drawRoundRect(self.linkXs[selected["i"]], selected["y"] - self.offset, self.linkWidths[selected["i"]], self.linkHeights[selected["i"]], 2)
+    gfx.drawRoundRect(self.linkXs[selected["i"]], selected["y"] - self.offset, self.linkWidths[selected["i"]],
+      self.linkHeights[selected["i"]], 2)
   elseif selected["type"] == "image" then
     local index = selected["i"]
 
-    gfx.setLineWidth(4)
+    gfx.setLineWidth(3)
     gfx.drawRect(self.imgXs[index], self.imgYs[index] - self.offset, self.imgWidths[index], self.imgHeights[index])
     gfx.setLineWidth(1)
   end
@@ -1007,18 +1022,22 @@ function Fewatsu:show()
   playdateMenu:removeAllMenuItems()
 
   playdateMenu:addMenuItem("about...", function()
-    fewatsu_menu.close()
+    if fewatsu_menu.isOpen then
+      fewatsu_menu.close()
+    end
     self:loadFile(FEWATSU_LIB_PATH .. "/fewatsu/pages/about.json")
   end)
 
   playdateMenu:addMenuItem("help...", function()
-    fewatsu_menu.close()
+    if fewatsu_menu.isOpen then
+      fewatsu_menu.close()
+    end
     self:loadFile(FEWATSU_LIB_PATH .. "/fewatsu/pages/help.json")
   end)
 
   self.inputDelayTimer = pd.timer.new(10)
 
-  pd.inputHandlers.push(self, true)
+  pd.inputHandlers.push(BLANK_INPUT_HANDLERS, true)
   self.oldUpdate = pd.update
   pd.update = function() self.update(self) end
 
@@ -1044,7 +1063,7 @@ function Fewatsu:hide()
   playdateMenu:removeAllMenuItems()
 
   if self.playBGM then
-    self.backgroundMusic:setVolume(0, 0, self.backgroundMusicFadeTime, function (self)
+    self.backgroundMusic:setVolume(0, 0, self.backgroundMusicFadeTime, function(self)
       self:stop()
     end)
   end
@@ -1387,7 +1406,7 @@ function Fewatsu:setScrollBarBackgroundImage(image)
   self.scrollbarBackgroundImage = image
 end
 
----Enables or disables the automatic adding of pages to the Fewatsu menu. 
+---Enables or disables the automatic adding of pages to the Fewatsu menu.
 ---
 ---By default, the menu will add all of the valid Fewatsu JSON files in the current working directory.
 ---
@@ -1402,7 +1421,7 @@ end
 ---
 ---`path` can be either an absolute path to the file or the path from Fewatsu's current working directory. Looks for [path], then [path].json.
 ---
----`displayName` can be provided if you would like the item to have a different display name than the default (the page's title). 
+---`displayName` can be provided if you would like the item to have a different display name than the default (the page's title).
 ---
 ---@param path string
 ---@param displayName? string

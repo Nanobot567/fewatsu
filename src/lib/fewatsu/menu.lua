@@ -160,4 +160,6 @@ end
 function menu.close()
   pd.update = menu.oldUpdate
   pd.inputHandlers.pop()
+
+  menu.isOpen = false
 end

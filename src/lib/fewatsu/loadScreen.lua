@@ -27,6 +27,8 @@ function loader.init(fewatsuInstance)
 end
 
 function loader.step(text)
+  local origInvert = pd.display.getInverted()
+
   pd.display.setInverted(true)
 
   loader.currentStep += 1
@@ -63,5 +65,5 @@ function loader.step(text)
 
   pd.display.flush()
 
-  pd.display.setInverted(false)
+  pd.display.setInverted(origInvert)
 end
