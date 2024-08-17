@@ -83,6 +83,14 @@
       "source": "example",
       "scale": 0.5
     },
+    "centered image 0.5x",
+    {
+      "type": "image",
+      "source": "manual/example",
+      "caption": "here is an example caption.",
+      "scale": 0.5,
+      "alignment": "right"
+    },
     "animated image",
     {
       "type": "image",

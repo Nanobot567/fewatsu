@@ -18,7 +18,7 @@ function fewatsu_debug.log(text, context)
       context = "INFO"
     end
 
-    cmpT = {pd.getCurrentTimeMilliseconds(), " [", string.upper(context), "] ", text}
+    cmpT = {"(", pd.getCurrentTimeMilliseconds(), "ms) [", string.upper(context), "] ", text}
 
     print(table.concat(cmpT))
   end

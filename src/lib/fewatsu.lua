@@ -16,6 +16,8 @@ import "fewatsu/loadScreen"
 local dbg = fewatsu_debug
 dbg.enabled = false
 
+dbg.log("Hi! I'm the fewatsu debugger. It looks like I'm enabled! ^w^", "FEWATSU")
+
 local pd <const> = playdate
 local gfx <const> = playdate.graphics
 local playdateMenu <const> = playdate.getSystemMenu()
@@ -159,13 +161,15 @@ function Fewatsu:init(workingDirectory)
   self.scrollbarLockedObject = nil
 
   self.scrollbarTimerEndedCallback = function()
-    self.scrollbarAnimator = gfx.animator.new(100, 20, 0)
-    self.scrollbarLockedObject = self.selectedObject
-    pd.timer.performAfterDelay(90, function()  -- FIX
-      self:update(true)
-      pd.display.flush()
-      self.scrollbarLockedObject = nil
-    end)
+    if self.documentImage.height >= 240 and self.scrollbarAnimator:currentValue() == self.scrollbarBackgroundImage.width then
+      self.scrollbarAnimator = gfx.animator.new(100, self.scrollbarBackgroundImage.width, 0)
+      self.scrollbarLockedObject = self.selectedObject
+      pd.timer.performAfterDelay(90, function()  -- FIX
+        self:update(true)
+        pd.display.flush()
+        self.scrollbarLockedObject = nil
+      end)
+    end
   end
 
   if not workingDirectory then
@@ -205,13 +209,7 @@ function Fewatsu:load(data)
 
   self.qrCodes = {}
 
-  if self.animatedImages then
-    for k, v in pairs(self.animatedImages) do
-      v:destroy()
-    end
-  end
-
-  self.animatedImages = {}
+  self:clearAnimatedImageCache()
 
   self.scrollbarShownTimer:remove()
   self.scrollbarAnimator = gfx.animator.new(0, 0, 0)
@@ -248,7 +246,8 @@ function Fewatsu:load(data)
 
   for i, element in ipairs(elements) do
     if self.shown and self.displayLoadingScreen then
-      fewatsu_loadScreen.step("parsing " .. element["type"] .. "...")
+      local percent = math.floor((i / (#elements * 2)) * 100)
+      fewatsu_loadScreen.step("parsing " .. element["type"] .. "...", percent)
     end
 
     table.insert(elementYs, currentY)
@@ -494,7 +493,8 @@ function Fewatsu:load(data)
 
     if self.shown and self.displayLoadingScreen then
       gfx.popContext()
-      fewatsu_loadScreen.step("drawing " .. elemType .. " @ " .. math.floor(currentElementY) .. "...")
+      local percent = math.floor(((#elements + elementI) / (#elements * 2)) * 100)
+      fewatsu_loadScreen.step("drawing " .. elemType .. " @ " .. math.floor(currentElementY) .. "...", percent)
       gfx.pushContext(self.documentImage)
 
       gfx.setColor(color)
@@ -518,22 +518,23 @@ function Fewatsu:load(data)
       --   element["height"] = table.remove(textHeights, 1)
       -- end
 
-      if element["alignment"] == nil then
-        element["alignment"] = kTextAlignment.left
-      end
-
-      if element["alignment"] then
-        if element["alignment"] == "left" then
-          element["alignment"] = kTextAlignment.left
-        elseif element["alignment"] == "center" then
-          element["alignment"] = kTextAlignment.center
-        elseif element["alignment"] == "right" then
-          element["alignment"] = kTextAlignment.right
-        end
-      end
     elseif elemType == "image" then
       if element["x"] == nil then
         element["x"] = FEWATSU_X
+      end
+    end
+
+    if element["alignment"] == nil then
+      element["alignment"] = kTextAlignment.left
+    end
+
+    if element["alignment"] then
+      if element["alignment"] == "left" then
+        element["alignment"] = kTextAlignment.left
+      elseif element["alignment"] == "center" then
+        element["alignment"] = kTextAlignment.center
+      elseif element["alignment"] == "right" then
+        element["alignment"] = kTextAlignment.right
       end
     end
 
@@ -604,6 +605,12 @@ function Fewatsu:load(data)
       local oldDrawMode = gfx.getImageDrawMode()
       gfx.setImageDrawMode(gfx.kDrawModeCopy)
 
+      if element["alignment"] == kTextAlignment.center then -- erm, it's not actually text :nerd:
+        element["x"] = 200 - element["x"] - (img.width / 2)
+      elseif element["alignment"] == kTextAlignment.right then
+        element["x"] = 400 - element["x"] - img.width
+      end
+
       img:draw(element["x"], currentElementY)
 
       gfx.setImageDrawMode(oldDrawMode)
@@ -655,7 +662,9 @@ local visibleObjects = {}
 
 ---Updates Fewatsu and draws it to the screen if needed.
 ---
----If `force` is true, draw to the screen no matter what.
+---If `force` is true, draw to the screen regardless of status.
+---
+---You shouldn't have to call this at all yourself. If you're looking to display Fewatsu, see `:show()`.
 ---
 ---@param force boolean
 function Fewatsu:update(force)
@@ -802,6 +811,8 @@ function Fewatsu:update(force)
       end
 
       fewatsu_menu.open(self, menuItemIndex, menuOptions, function(item)
+        dbg.log("got item " .. tostring(item), "menu")
+
         self.inputDelayTimer = pd.timer.new(10)
 
         if item == fewatsu_menu.EXIT_ITEM_TEXT then
@@ -813,6 +824,12 @@ function Fewatsu:update(force)
         self.scrollbarShownTimer:start()
 
         self:update(true)
+      end, function()
+        dbg.log("closed menu completely", "menu")
+
+        pd.timer.performAfterDelay(0, function()
+          self:update(true)
+        end)
       end)
     end
   end
@@ -985,10 +1002,6 @@ function Fewatsu:update(force)
       self:_drawObjectSelector(selected)
     end
 
-    -- if (drawSelector or not self.scrollbarAnimator:ended()) and self.selectedObject then
-    --   self:_drawObjectSelector(selected)
-    -- end
-
     if self.documentImage.height > 240 then
       scrollbarY = (math.abs(1 - ((self.documentImage.height - self.offset - 240) / (self.documentImage.height - 240))) * (240 - self.scrollbarSmallImage.height))
     else
@@ -996,8 +1009,8 @@ function Fewatsu:update(force)
     end
 
     if oldOffset ~= self.offset and math.abs(self.offset - oldOffset) > 3 then
-      if self.scrollbarAnimator:currentValue() == 0 and self.scrollbarShownTimer.timeLeft == 0 then
-        self.scrollbarAnimator = gfx.animator.new(100, 0, 20)
+      if self.scrollbarShownTimer.timeLeft == 0 then
+        self.scrollbarAnimator = gfx.animator.new(100, 0, self.scrollbarBackgroundImage.width)
       end
 
       self.scrollbarShownTimer:remove()
@@ -1087,8 +1100,15 @@ end
 
 ---Hides Fewatsu, restoring the original `playdate.update()` function and input handlers.
 ---
+---If `preserveCache` is `true`, doesn't clear the animated image and QR code caches.
+---
+---The current Fewatsu document and state will be preserved.
+---
+---@param preserveCache boolean
 ---@return nil
-function Fewatsu:hide()
+function Fewatsu:hide(preserveCache)
+  dbg.log("hiding", "fewatsu")
+
   pd.inputHandlers.pop()
   pd.update = self.oldUpdate
 
@@ -1096,6 +1116,11 @@ function Fewatsu:hide()
   pd.display.setInverted(self.originalDisplayInvertedMode)
 
   playdateMenu:removeAllMenuItems()
+
+  if not preserveCache then
+    self:clearAnimatedImageCache()
+    self.cachedQRCodes = {}
+  end
 
   if self.playBGM then
     self.backgroundMusic:setVolume(0, 0, self.backgroundMusicFadeTime, function(self)
@@ -1527,6 +1552,30 @@ function Fewatsu:setLoadingScreenShowSpinner(show)
   self.loadingScreenSpinner = show
 end
 
-function Fewatsu:destroy() -- TODO: function that sets everything in this fewatsu instance to nil
-  self = nil
+---Sets if loading screens should display the percent complete alongside the text.
+---
+---The loading screen must be enabled for this to take effect. See `:setEnableLoadingScreen()` for more details.
+---
+---Loading screen text must be enabled for this to take effect. See `:setLoadingScreenShowText()` for more details.
+---
+---Defaults to `true`.
+---
+---@param show boolean
+function Fewatsu:setLoadingScreenShowPercent(show)
+  fewatsu_loadScreen.showPercentage = show
 end
+
+---Clears the Fewatsu animated image cache.
+function Fewatsu:clearAnimatedImageCache()
+  if self.animatedImages then
+    for k, v in pairs(self.animatedImages) do
+      v:destroy()
+    end
+  end
+
+  self.animatedImages = {}
+end
+
+-- function Fewatsu:destroy() -- TODO: function that sets everything in this fewatsu instance to nil
+--   self = nil
+-- end

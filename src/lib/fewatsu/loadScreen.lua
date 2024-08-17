@@ -9,6 +9,7 @@ local loader = fewatsu_loadScreen
 
 loader.font = gfx.font.new(getScriptPath() .. "fnt/Roobert-9-Mono-Condensed")
 loader.SPINNER_CHARS = {"|", "/", "-", "\\"}
+loader.showPercentage = true
 
 function loader.init(fewatsuInstance)
   loader.text = fewatsuInstance.loadingScreenText
@@ -26,7 +27,7 @@ function loader.init(fewatsuInstance)
   pd.display.flush()
 end
 
-function loader.step(text)
+function loader.step(text, percentage)
   local origInvert = pd.display.getInverted()
 
   pd.display.setInverted(true)
@@ -58,6 +59,11 @@ function loader.step(text)
       x = 0
     elseif loader.textAlignment == kTextAlignment.center then
       x = 200
+    end
+
+    if percentage and loader.showPercentage then
+      text = text .. " [" .. tostring(percentage) .. "%]"
+      -- loader.font:drawText(tostring(percentage) .. "%", 2, y)
     end
 
     loader.font:drawTextAligned(text, x, y, loader.textAlignment)

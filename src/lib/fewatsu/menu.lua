@@ -29,7 +29,7 @@ menu.easeFunc = pd.easingFunctions.outExpo
 
 menu.width = 120
 
-function menu.open(fewatsuInstance, currentItem, options, callback) -- it's probably bad that i'm passing in self here.. but meh lol
+function menu.open(fewatsuInstance, currentItem, options, closingCallback, callback) -- it's probably bad that i'm passing in self here.. but meh lol
   listview:removeHorizontalDividers()
   menuOptions = { "*" .. menu.titleItemText .. "*", menu.EXIT_ITEM_TEXT}
   menuItemPaths = {}
@@ -68,6 +68,7 @@ function menu.open(fewatsuInstance, currentItem, options, callback) -- it's prob
 
   menu.selectedItem = nil
 
+  menu.closingCallback = closingCallback
   menu.callback = callback
   menu.backgroundImage = gfx.getDisplayImage():fadedImage(0.5, gfx.image.kDitherTypeBayer4x4)
 
@@ -92,8 +93,8 @@ function menu.update()
       if menu.selectedItem == menu.EXIT_ITEM_TEXT then
         menu.close()
 
-        if menu.callback then
-          menu.callback(menu.EXIT_ITEM_TEXT)
+        if menu.closingCallback then
+          menu.closingCallback(menu.EXIT_ITEM_TEXT)
         end
       else
         menu.closeStage1()
@@ -145,8 +146,8 @@ function menu.closeStage1()
   if menu.closing == false then
     menu.closing = true
 
-    if menu.callback then
-      menu.callback(menu.selectedItem)
+    if menu.closingCallback then
+      menu.closingCallback(menu.selectedItem)
 
       menu.animator = gfx.animator.new(0, 0, 0)
 
@@ -160,6 +161,10 @@ end
 function menu.close()
   pd.update = menu.oldUpdate
   pd.inputHandlers.pop()
+
+  if menu.callback then
+    menu.callback()
+  end
 
   menu.isOpen = false
 end

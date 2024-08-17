@@ -53,7 +53,7 @@ function AnimatedImage:updateFrame()
 end
 
 function AnimatedImage:update()
-  pd.frameTimer.updateTimers()
+  pd.timer.updateTimers()
 end
 
 function AnimatedImage:getCurrentFrame()
