@@ -14,7 +14,7 @@ function Particle:init()
   self.y = math.random(1, 30) * 2
   self.yOffset = 0
   self.speed = math.random(1, 3) + math.random()
-  self.radius = math.random(1, 3)
+  self.radius = math.random(1, 2)
 end
 
 function Particle:draw()
@@ -48,7 +48,7 @@ fewatsu = Fewatsu:init()
 fewatsu.customElements = {
   particles = {
     heightCalculationFunction = function(data)
-      return 60
+      return 70
     end,
 
     drawFunction = function(y, data)

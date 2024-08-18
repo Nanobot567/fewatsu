@@ -89,7 +89,7 @@
       "source": "manual/example",
       "caption": "here is an example caption.",
       "scale": 0.5,
-      "alignment": "right"
+      "alignment": "center"
     },
     "animated image",
     {
