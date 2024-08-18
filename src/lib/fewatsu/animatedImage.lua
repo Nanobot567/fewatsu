@@ -5,6 +5,8 @@ import "CoreLibs/frameTimer"
 local pd <const> = playdate
 local gfx <const> = playdate.graphics
 
+local dbg = fewatsu_debug
+
 class("AnimatedImage").extends()
 
 AnimatedImage.SEGMENT_SIZE = 25
@@ -40,6 +42,8 @@ function AnimatedImage:init(path, scale, delay)
   self.images = itable
 
   self.currentFrame = self.images[1]
+
+  dbg.log(table.concat({"new (", path .. ", " .. tostring(scale) .. " scale, " .. tostring(delay) .. " delay)"}), "animated image")
 end
 
 function AnimatedImage:updateFrame()

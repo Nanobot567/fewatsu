@@ -75,14 +75,28 @@ function getScriptPath()
 end
 
 -- returns the path which exists, first trying from `cwd`, then trying as an absolute path
-function getExistentPath(cwd, path)
-  if pd.file.exists(cwd .. path) and not pd.file.isdir(cwd .. path) then
-    return cwd .. path
-  elseif pd.file.exists(path) and not pd.file.isdir(path) then
-    return path
-  else
-    return nil
+function getExistentPath(cwd, path, extensions)
+  local checkTable = {""}
+
+  if type(extensions) == "table" then
+    for i, v in ipairs(extensions) do
+      table.insert(checkTable, v)
+    end
+  elseif extensions ~= nil then
+    table.insert(checkTable, extensions)
   end
+
+  for i, v in ipairs(checkTable) do
+    local p = path .. v
+
+    if pd.file.exists(cwd .. p) and not pd.file.isdir(cwd .. p) then
+      return cwd .. p
+    elseif pd.file.exists(p) and not pd.file.isdir(p) then
+      return p
+    end
+  end
+
+  return nil
 end
 
 function generateImageNotFoundImage(path)

@@ -121,7 +121,7 @@ function Fewatsu:init(workingDirectory)
 
   self.quoteBoxPadding = 30
 
-  self.titlesToPaths = {}
+  self.customElements = {}
 
   self.title = ""
   self.path = ""
@@ -220,6 +220,10 @@ function Fewatsu:load(data)
   self.offset = 0
 
   self.elements = {}
+
+  self.customElementYs = {}
+
+  local customElementCachedDraws = {}
 
   local currentY = self.topPadding
   local elements = data["data"]
@@ -350,18 +354,12 @@ function Fewatsu:load(data)
         yscale = element["yscale"]
       end
 
-      imgpath = getExistentPath(self.cwd, imgpath .. ".pdi")
+      imgpath = getExistentPath(self.cwd, imgpath, {".pdi", ".pdt"})
 
       if imgpath ~= nil then
-        img = gfx.image.new(imgpath)
-      else
-        imgpath = getExistentPath(self.cwd, element["source"] .. ".pdt")
-
-        if imgpath == nil then
-          img = generateImageNotFoundImage(element["source"])
-
-          scale = 1
-        else
+        if string.sub(imgpath, #imgpath - 3) == ".pdi" then
+          img = gfx.image.new(imgpath)
+        elseif string.sub(imgpath, #imgpath - 3) == ".pdt" then
           if self.shown and self.displayLoadingScreen then
             fewatsu_loadScreen.step("loading animated image, please wait...")
           end
@@ -371,10 +369,18 @@ function Fewatsu:load(data)
           img = self.animatedImages[currentY]:getCurrentFrame()
 
           scale = 1
+        else
+          img = generateImageNotFoundImage(element["source"])
+
+          scale = 1
         end
+      else
+        img = generateImageNotFoundImage(element["source"])
+
+        scale = 1
       end
 
-      if imgpath ~= nil then
+      if imgpath ~= nil and string.sub(imgpath, #imgpath - 3) == ".pdi" then
         img = img:scaledImage(scale, yscale)
       end
 
@@ -445,6 +451,13 @@ function Fewatsu:load(data)
 
         while waitingForQR do
           pd.timer.updateTimers()
+        end
+      end
+    else
+      for k, v in pairs(self.customElements) do
+        if k == elemType then
+          self.customElementYs[i] = currentY
+          currentY = currentY + v["heightCalculationFunction"](element) + v["padding"]
         end
       end
     end
@@ -586,20 +599,18 @@ function Fewatsu:load(data)
         yscale = scale
       end
 
-      imgpath = getExistentPath(self.cwd, imgpath .. ".pdi")
+      imgpath = getExistentPath(self.cwd, imgpath, {".pdi", ".pdt"})
 
       if imgpath ~= nil then
-        img = gfx.image.new(imgpath)
+        if string.sub(imgpath, #imgpath - 3) == ".pdi" then
+          img = gfx.image.new(imgpath)
 
-        img = img:scaledImage(scale, yscale)
-      else
-        imgpath = getExistentPath(self.cwd, element["source"] .. ".pdt")
-
-        if imgpath == nil then
-          img = generateImageNotFoundImage(element["source"])
-        else
+          img = img:scaledImage(scale, yscale)
+        elseif string.sub(imgpath, #imgpath - 3) == ".pdt" then
           img = self.animatedImages[currentElementY]:getCurrentFrame()
         end
+      else
+        img = generateImageNotFoundImage(element["source"])
       end
 
       local oldDrawMode = gfx.getImageDrawMode()
@@ -639,12 +650,18 @@ function Fewatsu:load(data)
     elseif elemType == "qr" then
       local img = table.remove(self.qrCodes, 1)
 
-      if element["alignment"] == "center" then
+      if element["alignment"] == kTextAlignment.center then
         img:draw(200 - (img.width / 2), currentElementY)
-      elseif element["alignment"] == "right" then
+      elseif element["alignment"] == kTextAlignment.right then
         img:draw(400 - self.rightPadding - img.width, currentElementY)
       else
         img:draw(0, currentElementY)
+      end
+    else
+      for k, v in pairs(self.customElements) do
+        if k == elemType and not v["updateEveryFrame"] then
+          v["drawFunction"](currentElementY, element)
+        end
       end
     end
   end
@@ -685,7 +702,7 @@ function Fewatsu:update(force)
 
       local chg, achg = pd.getCrankChange()
 
-      self.offset = self.offset + chg
+      self.offset = self.offset + math.round(chg)
 
       if self.offset < 0 then
         self.offset = 0
@@ -851,6 +868,30 @@ function Fewatsu:update(force)
     if k - self.offset < v:getCurrentFrame().height and k - self.offset > -v:getCurrentFrame().height then
       v:update()
       v:getCurrentFrame():draw(0, k - self.offset)
+    end
+  end
+
+  for elementI, element in ipairs(self.elements) do
+    for k, v in pairs(self.customElements) do
+      if k == element["type"] and v["updateEveryFrame"] then
+        if self.customElementYs[elementI] - self.offset < 240 and self.customElementYs[elementI] - self.offset > -v["heightCalculationFunction"](element) then
+          dbg.log("drawing " .. k .. " at " .. self.customElementYs[elementI], "custom elements")
+
+          local origColor = gfx.getColor()
+
+          if self.darkMode then
+            gfx.setColor(gfx.kColorBlack)
+          else
+            gfx.setColor(gfx.kColorWhite)
+          end
+
+          gfx.fillRect(0, self.customElementYs[elementI] - self.offset, 400, v["heightCalculationFunction"](element) + (v["padding"] - 4)) -- NOTE: overwrite padding on init if not provided
+
+          gfx.setColor(origColor)
+
+          v["drawFunction"](self.customElementYs[elementI] - self.offset, element)
+        end
+      end
     end
   end
 
@@ -1102,7 +1143,7 @@ end
 ---
 ---If `preserveCache` is `true`, doesn't clear the animated image and QR code caches.
 ---
----The current Fewatsu document and state will be preserved.
+---The current Fewatsu document and state are preserved.
 ---
 ---@param preserveCache boolean
 ---@return nil
@@ -1137,22 +1178,26 @@ end
 
 ---Shorthand function for loading a JSON file into Fewatsu.
 ---
+---`path` can be an absolute path or a path from the current working directory.
+---
+---File extension can be omitted (will check for `.json` files).
+---
 ---Returns the generated image.
 ---
----@param file string
+---@param path string
 ---@return playdate.graphics.image
-function Fewatsu:loadFile(file)
-  local path = getExistentPath(self.cwd, file)
-  if path ~= nil then
-    self.path = path
+function Fewatsu:loadFile(path)
+  local newpath = getExistentPath(self.cwd, path, ".json")
+  if newpath ~= nil then
+    self.path = newpath
 
-    local decodedFile = json.decodeFile(path)
+    local decodedFile = json.decodeFile(newpath)
 
     if decodedFile then
       return self:load(decodedFile)
     end
   end
-  error("could not load file " .. file)
+  error("could not load file " .. path)
 end
 
 ---Sets the current working directory. Fewatsu can use this to call for images and JSON files without using the absolute path.
@@ -1164,18 +1209,8 @@ end
 ---@param dir string
 ---@return boolean
 function Fewatsu:setCurrentWorkingDirectory(dir)
-  self.titlesToPaths = {}
-
   if pd.file.exists(dir) then
     self.cwd = dir
-
-    for i, v in ipairs(pd.file.listFiles(self.cwd)) do
-      if string.sub(v, #v - 4) == ".json" then
-        local fileData = json.decodeFile(self.cwd .. v)
-
-        self.titlesToPaths[fileData["title"]] = self.cwd .. v
-      end
-    end
 
     return true
   else
@@ -1450,7 +1485,7 @@ end
 
 ---Sets the image to use for the scroll bar.
 ---
----The image should be 20 pixels wide, and up to 160 pixels tall. For the best results, add two or so pixels of padding to every side of the image.
+---The image should be 20 pixels wide, and up to 160 pixels tall. For the best results, it is recommended to add two or so pixels of padding to every side of the image.
 ---
 ---@param image playdate.graphics.image
 function Fewatsu:setScrollBarImage(image)
@@ -1477,7 +1512,7 @@ function Fewatsu:setMenuAutoAdd(enable)
   self.menuAutoItemAdd = enable
 end
 
----Adds a page to the Fewatsu menu.
+---Adds a page to the Fewatsu menu. `:setMenuAutoAdd()` must be `true`.
 ---
 ---`path` can be either an absolute path to the file or the path from Fewatsu's current working directory. Looks for [path], then [path].json.
 ---
@@ -1566,6 +1601,7 @@ function Fewatsu:setLoadingScreenShowPercent(show)
 end
 
 ---Clears the Fewatsu animated image cache.
+---
 function Fewatsu:clearAnimatedImageCache()
   if self.animatedImages then
     for k, v in pairs(self.animatedImages) do
@@ -1574,6 +1610,10 @@ function Fewatsu:clearAnimatedImageCache()
   end
 
   self.animatedImages = {}
+end
+
+function Fewatsu:getOffset()
+  return self.offset
 end
 
 -- function Fewatsu:destroy() -- TODO: function that sets everything in this fewatsu instance to nil

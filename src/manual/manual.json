@@ -94,7 +94,8 @@
     "animated image",
     {
       "type": "image",
-      "source": "cube"
+      "source": "cube",
+      "delay": 5
     },
     "nonexistent image",
     {
@@ -124,6 +125,10 @@
     {
       "type": "quote",
       "text": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    },
+    "dynamic custom element",
+    {
+      "type": "particles"
     },
     {
       "type": "link",
