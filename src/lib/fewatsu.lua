@@ -885,11 +885,17 @@ function Fewatsu:update(force)
             gfx.setColor(gfx.kColorWhite)
           end
 
-          gfx.fillRect(0, self.customElementYs[elementI] - self.offset, 400, v["heightCalculationFunction"](element) + (v["padding"] - 4)) -- NOTE: overwrite padding on init if not provided
+          gfx.fillRect(0, self.customElementYs[elementI] - self.offset, 400, v["heightCalculationFunction"](element) - v["padding"]) -- NOTE: overwrite padding on init if not provided
 
-          gfx.setColor(origColor)
+          if self.darkMode then
+            gfx.setColor(gfx.kColorWhite)
+          else
+            gfx.setColor(gfx.kColorBlack)
+          end
 
           v["drawFunction"](self.customElementYs[elementI] - self.offset, element)
+
+          gfx.setColor(origColor)
         end
       end
     end
@@ -1130,7 +1136,7 @@ function Fewatsu:show()
   self.oldUpdate = pd.update
   pd.update = function() self.update(self) end
 
-  if self.playBGM then
+  if self.playBGM and self.backgroundMusic ~= nil then
     self.backgroundMusic:setVolume(0, 0)
     self.backgroundMusic:setVolume(self.backgroundMusicVolume, self.backgroundMusicVolume, self.backgroundMusicFadeTime)
     self.backgroundMusic:play(0)
@@ -1163,7 +1169,7 @@ function Fewatsu:hide(preserveCache)
     self.cachedQRCodes = {}
   end
 
-  if self.playBGM then
+  if self.playBGM and self.backgroundMusic ~= nil then
     self.backgroundMusic:setVolume(0, 0, self.backgroundMusicFadeTime, function(self)
       self:stop()
     end)

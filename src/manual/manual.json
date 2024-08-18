@@ -94,8 +94,7 @@
     "animated image",
     {
       "type": "image",
-      "source": "cube",
-      "delay": 5
+      "source": "cube"
     },
     "nonexistent image",
     {
@@ -116,19 +115,13 @@
       "type": "quote",
       "text": "https://example.com/"
     },
-    "larger qr code",
+    "custom element",
     {
-      "type": "qr",
-      "data": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-      "alignment": "center"
-    },
-    {
-      "type": "quote",
-      "text": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+      "type": "sine"
     },
     "dynamic custom element",
     {
-      "type": "particles"
+      "type": "dynamicSine"
     },
     {
       "type": "link",
