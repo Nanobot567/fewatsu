@@ -158,12 +158,12 @@ function menu.closeStage1()
   end
 end
 
-function menu.close()
+function menu.close(noCallback)
   pd.update = menu.oldUpdate
   pd.inputHandlers.pop()
 
-  if menu.callback then
-    menu.callback(menu.selectedItem)
+  if menu.callback and not noCallback then
+    menu.callback()
   end
 
   menu.isOpen = false

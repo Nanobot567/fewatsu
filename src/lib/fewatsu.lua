@@ -106,7 +106,7 @@ function Fewatsu:init(workingDirectory)
   self.shown = false
 
   self.offsetAnimator = nil
-  self.animatorEaseTime = 350
+  self.animatorEaseTime = 400
   self.animatorEaseFunction = pd.easingFunctions.outExpo
 
   self.menuAnimator = gfx.animator.new(0, self.menuWidth, self.menuWidth)
@@ -868,6 +868,7 @@ function Fewatsu:update(force)
 
   for k, v in pairs(self.animatedImages) do
     if k - self.offset < v:getCurrentFrame().height and k - self.offset > -v:getCurrentFrame().height then
+      dbg.log("drawing animated image at " .. k, "animated image")
       v:getCurrentFrame(self.darkMode):draw(0, k - self.offset)
     end
   end
@@ -1124,14 +1125,14 @@ function Fewatsu:show()
 
   playdateMenu:addMenuItem("about...", function()
     if fewatsu_menu.isOpen then
-      fewatsu_menu.close()
+      fewatsu_menu.close(true)
     end
     self:loadFile(FEWATSU_LIB_PATH .. "/fewatsu/pages/about.json")
   end)
 
   playdateMenu:addMenuItem("help...", function()
     if fewatsu_menu.isOpen then
-      fewatsu_menu.close()
+      fewatsu_menu.close(true)
     end
     self:loadFile(FEWATSU_LIB_PATH .. "/fewatsu/pages/help.json")
   end)
@@ -1242,7 +1243,7 @@ end
 
 ---Sets the time it takes to scroll to a new manual page offset.
 ---
----Defaults to `350`ms.
+---Defaults to `400`ms.
 ---
 ---@param ms number
 function Fewatsu:setScrollDuration(ms)
