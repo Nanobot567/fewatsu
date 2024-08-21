@@ -9,39 +9,41 @@ local darkmode = false
 
 local sineWavePhase = 0
 
-fewatsu = Fewatsu:init()
-fewatsu.customElements = {
-  sine = {
-    heightCalculationFunction = function()
-      return 100
-    end,
+local sineCustomElement = {
+  heightCalculationFunction = function()
+    return 100
+  end,
 
-    drawFunction = function(y, data)
-      gfx.drawSineWave(0, y + 45, 400, y + 45, 35, 35, 50)
-    end,
-
-    padding = 10
-  },
-
-  dynamicSine = {
-    heightCalculationFunction = function ()
-      return 100
-    end,
-
-    drawFunction = function(y, data)
-      sineWavePhase += 1
-
-      if sineWavePhase == 50 then
-        sineWavePhase = 0
-      end
-
-      gfx.drawSineWave(0, y + 45, 420, y + 45, 35, 35, 50, -sineWavePhase)
-    end,
-
-    padding = 10,
-    updateEveryFrame = true
-  }
+  drawFunction = function(y, data)
+    gfx.drawSineWave(0, y + 45, 400, y + 45, 35, 35, 50)
+  end
 }
+
+local dynamicSineCustomElement = {
+  heightCalculationFunction = function ()
+    return 100
+  end,
+
+  drawFunction = function(y, data)
+    sineWavePhase += data["step"]
+
+    if sineWavePhase >= 50 then
+      sineWavePhase = 0
+    end
+
+    gfx.drawSineWave(0, y + 45, 420, y + 45, 35, 35, 50, -sineWavePhase)
+  end,
+
+  drawEveryFrame = true
+}
+
+
+fewatsu = Fewatsu:init()
+-- EPIC EASE :fire:
+-- fewatsu:setScrollEasingFunction(pd.easingFunctions.inOutExpo)
+-- fewatsu:setScrollDuration(800)
+fewatsu:registerCustomElement("sine", sineCustomElement)
+fewatsu:registerCustomElement("dynamicSine", dynamicSineCustomElement)
 
 function pd.update()
   gfx.clear()

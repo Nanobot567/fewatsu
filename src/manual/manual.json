@@ -75,13 +75,15 @@
     {
       "type": "image",
       "source": "manual/example",
-      "caption": "here is an example caption."
+      "caption": "here is an example caption.",
+      "darkModeInvert": true
     },
     "image 0.5x",
     {
       "type": "image",
       "source": "example",
-      "scale": 0.5
+      "scale": 0.5,
+      "darkModeInvert": true
     },
     "centered image 0.5x",
     {
@@ -89,12 +91,14 @@
       "source": "manual/example",
       "caption": "here is an example caption.",
       "scale": 0.5,
-      "alignment": "center"
+      "alignment": "center",
+      "darkModeInvert": true
     },
     "animated image",
     {
       "type": "image",
-      "source": "cube"
+      "source": "cube",
+      "darkModeInvert": true
     },
     "nonexistent image",
     {
@@ -121,7 +125,8 @@
     },
     "dynamic custom element",
     {
-      "type": "dynamicSine"
+      "type": "dynamicSine",
+      "step": 2
     },
     {
       "type": "link",

@@ -113,7 +113,7 @@ function Fewatsu:init(workingDirectory)
   self.menuAutoItemAdd = true
   self.menuItems = {}
 
-  self.inputDelayTimer = nil
+  self.inputDelayTimer = pd.timer.new(10)
 
   self.leftPadding = 4
   self.rightPadding = 4
@@ -164,7 +164,7 @@ function Fewatsu:init(workingDirectory)
     if self.documentImage.height >= 240 and self.scrollbarAnimator:currentValue() == self.scrollbarBackgroundImage.width then
       self.scrollbarAnimator = gfx.animator.new(100, self.scrollbarBackgroundImage.width, 0)
       self.scrollbarLockedObject = self.selectedObject
-      pd.timer.performAfterDelay(90, function()  -- FIX
+      pd.timer.performAfterDelay(90, function()
         self:update(true)
         pd.display.flush()
         self.scrollbarLockedObject = nil
@@ -215,6 +215,8 @@ function Fewatsu:load(data)
   self.scrollbarAnimator = gfx.animator.new(0, 0, 0)
   self.scrollbarShownTimer = pd.timer.new(0)
 
+  self.inputDelayTimer = pd.timer.new(10)
+
   self.headerYs = {}
 
   self.offset = 0
@@ -222,8 +224,6 @@ function Fewatsu:load(data)
   self.elements = {}
 
   self.customElementYs = {}
-
-  local customElementCachedDraws = {}
 
   local currentY = self.topPadding
   local elements = data["data"]
@@ -233,6 +233,8 @@ function Fewatsu:load(data)
   local elemType = ""
 
   self.title = data["title"]
+
+  dbg.log("loading data, title " .. self.title, "load")
 
   for i, element in ipairs(elements) do -- preprocessing for string elements
     if type(element) == "string" then
@@ -334,7 +336,7 @@ function Fewatsu:load(data)
       table.insert(textHeights, texth)
 
       currentY = currentY + texth + 10
-    elseif elemType == "quote" then -- TODO: maybe needs fixing for larger text padding
+    elseif elemType == "quote" then
       local textw, texth = gfx.getTextSizeForMaxWidth(element["text"],
         FEWATSU_WIDTH - (self.quoteBoxPadding * 2) - (self.rightPadding + self.leftPadding) - 8)
 
@@ -364,15 +366,9 @@ function Fewatsu:load(data)
             fewatsu_loadScreen.step("loading animated image, please wait...")
           end
 
-          self.animatedImages[currentY] = AnimatedImage(imgpath, element["scale"], element["delay"])
+          self.animatedImages[currentY] = AnimatedImage(imgpath, element["scale"], element["delay"], element["darkModeInvert"])
 
           img = self.animatedImages[currentY]:getCurrentFrame()
-
-          scale = 1
-        else
-          img = generateImageNotFoundImage(element["source"])
-
-          scale = 1
         end
       else
         img = generateImageNotFoundImage(element["source"])
@@ -433,8 +429,12 @@ function Fewatsu:load(data)
         currentY = currentY + self.qrCodes[#self.qrCodes].height + 10
       else
         if self.shown and self.displayLoadingScreen then
+          local origInvert = pd.display.getInverted()
+
+          pd.display.setInverted(true)
           fewatsu_loadScreen.step("generating qr code...")
           pd.display.flush()
+          pd.display.setInverted(false)
         end
 
         gfx.generateQRCode(element["data"], element["desiredEdgeDimension"], function(qrcode)
@@ -609,6 +609,10 @@ function Fewatsu:load(data)
         elseif string.sub(imgpath, #imgpath - 3) == ".pdt" then
           img = self.animatedImages[currentElementY]:getCurrentFrame()
         end
+
+        if self.darkMode and element["darkModeInvert"] then
+          img = img:invertedImage()
+        end
       else
         img = generateImageNotFoundImage(element["source"])
       end
@@ -659,7 +663,7 @@ function Fewatsu:load(data)
       end
     else
       for k, v in pairs(self.customElements) do
-        if k == elemType and not v["updateEveryFrame"] then
+        if k == elemType and not v["drawEveryFrame"] then
           v["drawFunction"](currentElementY, element)
         end
       end
@@ -791,7 +795,7 @@ function Fewatsu:update(force)
           end
         end
       end
-    elseif pd.buttonJustPressed("b") and self.allowInput then
+    elseif pd.buttonJustPressed("b") and self.allowInput and not fewatsu_menu.isOpen then
       dbg.log("displaying menu", "menu")
 
       local menuItemIndex = 1
@@ -830,8 +834,6 @@ function Fewatsu:update(force)
       fewatsu_menu.open(self, menuItemIndex, menuOptions, function(item)
         dbg.log("got item " .. tostring(item), "menu")
 
-        self.inputDelayTimer = pd.timer.new(10)
-
         if item == fewatsu_menu.EXIT_ITEM_TEXT then
           self:hide()
         elseif item ~= nil and item ~= self.path then
@@ -841,7 +843,7 @@ function Fewatsu:update(force)
         self.scrollbarShownTimer:start()
 
         self:update(true)
-      end, function()
+      end, function(item)
         dbg.log("closed menu completely", "menu")
 
         pd.timer.performAfterDelay(0, function()
@@ -866,18 +868,18 @@ function Fewatsu:update(force)
 
   for k, v in pairs(self.animatedImages) do
     if k - self.offset < v:getCurrentFrame().height and k - self.offset > -v:getCurrentFrame().height then
-      v:update()
-      v:getCurrentFrame():draw(0, k - self.offset)
+      v:getCurrentFrame(self.darkMode):draw(0, k - self.offset)
     end
   end
 
   for elementI, element in ipairs(self.elements) do
     for k, v in pairs(self.customElements) do
-      if k == element["type"] and v["updateEveryFrame"] then
+      if k == element["type"] and v["drawEveryFrame"] and self.customElementYs[elementI] ~= nil then
         if self.customElementYs[elementI] - self.offset < 240 and self.customElementYs[elementI] - self.offset > -v["heightCalculationFunction"](element) then
           dbg.log("drawing " .. k .. " at " .. self.customElementYs[elementI], "custom elements")
 
           local origColor = gfx.getColor()
+          local origDrawMode = gfx.getImageDrawMode()
 
           if self.darkMode then
             gfx.setColor(gfx.kColorBlack)
@@ -885,17 +887,20 @@ function Fewatsu:update(force)
             gfx.setColor(gfx.kColorWhite)
           end
 
-          gfx.fillRect(0, self.customElementYs[elementI] - self.offset, 400, v["heightCalculationFunction"](element) - v["padding"]) -- NOTE: overwrite padding on init if not provided
+          gfx.fillRect(0, self.customElementYs[elementI] - self.offset, 400, v["heightCalculationFunction"](element) - v["padding"])
 
           if self.darkMode then
             gfx.setColor(gfx.kColorWhite)
           else
             gfx.setColor(gfx.kColorBlack)
           end
+        
+          gfx.setImageDrawMode(gfx.kDrawModeCopy)
 
           v["drawFunction"](self.customElementYs[elementI] - self.offset, element)
 
           gfx.setColor(origColor)
+          gfx.setImageDrawMode(origDrawMode)
         end
       end
     end
@@ -1110,6 +1115,7 @@ function Fewatsu:show()
 
   self.originalRefreshRate = pd.display.getRefreshRate()
   self.originalDisplayInvertedMode = pd.display.getInverted()
+  self.allowInput = true
 
   pd.display.setRefreshRate(50)
   pd.display.setInverted(false)
@@ -1129,7 +1135,7 @@ function Fewatsu:show()
     end
     self:loadFile(FEWATSU_LIB_PATH .. "/fewatsu/pages/help.json")
   end)
-
+  
   self.inputDelayTimer = pd.timer.new(10)
 
   pd.inputHandlers.push(BLANK_INPUT_HANDLERS, true)
@@ -1176,6 +1182,7 @@ function Fewatsu:hide(preserveCache)
   end
 
   self.shown = false
+  self.allowInput = false
 
   if self.callback then
     self.callback()
@@ -1193,6 +1200,8 @@ end
 ---@param path string
 ---@return playdate.graphics.image
 function Fewatsu:loadFile(path)
+  dbg.log("attempting to load file " .. path, "loadfile")
+
   local newpath = getExistentPath(self.cwd, path, ".json")
   if newpath ~= nil then
     self.path = newpath
@@ -1618,8 +1627,18 @@ function Fewatsu:clearAnimatedImageCache()
   self.animatedImages = {}
 end
 
-function Fewatsu:getOffset()
-  return self.offset
+---Registers a new custom element.
+---
+---Please see the `custom elements` section in the Fewatsu format documentation (`FORMAT.md`) for more information.
+---
+---@param name string
+---@param data table
+function Fewatsu:registerCustomElement(name, data)
+  if not data["padding"] then
+    data["padding"] = 10
+  end
+
+  self.customElements[name] = data
 end
 
 -- function Fewatsu:destroy() -- TODO: function that sets everything in this fewatsu instance to nil

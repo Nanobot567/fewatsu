@@ -11,7 +11,7 @@ class("AnimatedImage").extends()
 
 AnimatedImage.SEGMENT_SIZE = 25
 
-function AnimatedImage:init(path, scale, delay)
+function AnimatedImage:init(path, scale, delay, darkModeInvert)
   self.frame = 1
   self.segmentFrame = 1
 
@@ -21,6 +21,7 @@ function AnimatedImage:init(path, scale, delay)
 
   self.delay = delay
   self.path = path
+  self.darkModeInvert = darkModeInvert
 
   self.timer = pd.timer.new(delay)
   self.timer.repeats = true
@@ -56,11 +57,14 @@ function AnimatedImage:updateFrame()
   self.currentFrame = self.images[self.frame]
 end
 
-function AnimatedImage:update()
-end
+function AnimatedImage:getCurrentFrame(invert)
+  local frame = self.currentFrame
 
-function AnimatedImage:getCurrentFrame()
-  return self.currentFrame
+  if invert and self.darkModeInvert then
+    frame = frame:invertedImage()
+  end
+
+  return frame
 end
 
 function AnimatedImage:getDelay()

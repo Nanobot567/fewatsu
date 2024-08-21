@@ -163,8 +163,9 @@ function menu.close()
   pd.inputHandlers.pop()
 
   if menu.callback then
-    menu.callback()
+    menu.callback(menu.selectedItem)
   end
 
   menu.isOpen = false
+  menu.closing = false
 end
