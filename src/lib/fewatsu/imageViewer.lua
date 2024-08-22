@@ -8,8 +8,11 @@ fewatsu_imageViewer = {}
 local imageViewer = fewatsu_imageViewer
 
 imageViewer.hideUI = false
+imageViewer.isOpen = false
 
 function imageViewer.open(image, caption, callback)
+  imageViewer.isOpen = true
+
   imageViewer.x = 200
   imageViewer.y = 120
   imageViewer.scale = 1
@@ -54,9 +57,9 @@ function imageViewer.update()
   imageViewer.image:drawCentered(imageViewer.x, imageViewer.y)
 
   if not imageViewer.hideUI then
-    gfx.drawText(imageViewer.caption, 0, 0)
-    gfx.drawTextAligned("Ⓐ = toggle UI, 🎣 = scale, Ⓑ = exit", 400, 220, kTextAlignment.right)
-    gfx.drawText(math.round(imageViewer.scale, 2) .. "x", 0, 220)
+    gfx.drawTextInRect(imageViewer.caption, 2, 2, 396, gfx.getFont():getHeight() * 2 + 2, nil, "...")
+    gfx.drawTextAligned("Ⓐ = toggle UI, 🎣 = scale, Ⓑ = exit", 398, 220, kTextAlignment.right)
+    gfx.drawText(math.round(imageViewer.scale, 2) .. "x", 2, 224)
   end
 end
 
@@ -101,4 +104,6 @@ function imageViewer.close()
 
   imageViewer.image = nil
   imageViewer.originalImage = nil
+
+  imageViewer.isOpen = false
 end

@@ -82,6 +82,7 @@
     {
       "type": "image",
       "source": "example",
+      "caption": "here is a very very very very very long image caption!",
       "scale": 0.5,
       "darkModeInvert": true
     },
@@ -89,7 +90,6 @@
     {
       "type": "image",
       "source": "manual/example",
-      "caption": "here is an example caption.",
       "scale": 0.5,
       "alignment": "center",
       "darkModeInvert": true

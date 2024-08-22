@@ -12,6 +12,8 @@ function fewatsu_debug.log(text, context)
 
     if type(text) == "table" then
       text = table.concat(text)
+    else
+      text = tostring(text)
     end
 
     if not context then

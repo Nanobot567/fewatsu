@@ -12,6 +12,7 @@ import "fewatsu/imageViewer"
 import "fewatsu/menu"
 import "fewatsu/animatedImage"
 import "fewatsu/loadScreen"
+import "fewatsu/splash"
 
 local dbg = fewatsu_debug
 dbg.enabled = false
@@ -142,6 +143,10 @@ function Fewatsu:init(workingDirectory)
   self.loadingScreenTextAlignment = kTextAlignment.right
   self.loadingScreenSpinner = true
 
+  self.showSplash = true
+  self.splashText = "Fewatsu"
+  self.splashFont = gfx.font.new(FEWATSU_LIB_PATH .. "fewatsu/fnt/Asheville-Sans-24-Light")
+
   self.backgroundMusic = pd.sound.fileplayer.new(FEWATSU_LIB_PATH .. "fewatsu/snd/bgm")
   self.backgroundMusicVolume = 0.1
   self.backgroundMusicFadeTime = 1
@@ -231,6 +236,7 @@ function Fewatsu:load(data)
   local textHeights = {}
   local processedLists = {}
   local elemType = ""
+  local textw, texth
 
   self.title = data["title"]
 
@@ -271,7 +277,7 @@ function Fewatsu:load(data)
     end
 
     if elemType == "title" then
-      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"],
+      textw, texth = gfx.getTextSizeForMaxWidth(element["text"],
         FEWATSU_WIDTH - (self.rightPadding + self.leftPadding), nil, self.titleFont)
 
       table.insert(textHeights, texth)
@@ -282,7 +288,7 @@ function Fewatsu:load(data)
         currentY = texth + 10
       end
     elseif elemType == "heading" then
-      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"],
+      textw, texth = gfx.getTextSizeForMaxWidth(element["text"],
         FEWATSU_WIDTH - (self.rightPadding + self.leftPadding), nil, self.headingFont)
 
       table.insert(textHeights, texth)
@@ -293,7 +299,7 @@ function Fewatsu:load(data)
         currentY = currentY + texth + 10
       end
     elseif elemType == "subheading" then
-      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"],
+      textw, texth = gfx.getTextSizeForMaxWidth(element["text"],
         FEWATSU_WIDTH - (self.rightPadding + self.leftPadding), nil, self.subheadingFont)
 
       table.insert(textHeights, texth)
@@ -304,7 +310,7 @@ function Fewatsu:load(data)
         currentY = currentY + texth + 10
       end
     elseif elemType == "text" then
-      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"],
+      textw, texth = gfx.getTextSizeForMaxWidth(element["text"],
         FEWATSU_WIDTH - (self.rightPadding + self.leftPadding))
 
       table.insert(textHeights, texth)
@@ -330,14 +336,14 @@ function Fewatsu:load(data)
 
       table.insert(processedLists, text)
 
-      local textw, texth = gfx.getTextSizeForMaxWidth(text,
+      textw, texth = gfx.getTextSizeForMaxWidth(text,
         FEWATSU_WIDTH - FEWATSU_LISTINDENT - (self.rightPadding + self.leftPadding))
 
       table.insert(textHeights, texth)
 
       currentY = currentY + texth + 10
     elseif elemType == "quote" then
-      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"],
+      textw, texth = gfx.getTextSizeForMaxWidth(element["text"],
         FEWATSU_WIDTH - (self.quoteBoxPadding * 2) - (self.rightPadding + self.leftPadding) - 8)
 
       table.insert(textHeights, texth)
@@ -382,7 +388,7 @@ function Fewatsu:load(data)
 
       currentY = currentY + img.height * scale + 20
     elseif elemType == "link" then
-      local textw, texth = gfx.getTextSizeForMaxWidth(element["text"],
+      textw, texth = gfx.getTextSizeForMaxWidth(element["text"],
         FEWATSU_WIDTH - (self.rightPadding + self.leftPadding), nil, self.linkFont)
 
       table.insert(textHeights, texth)
@@ -672,6 +678,10 @@ function Fewatsu:load(data)
 
   gfx.popContext()
 
+  if self.shown then
+    pd.display.setInverted(false)
+  end
+
   self.allowInput = true
 
   return self.documentImage
@@ -843,7 +853,7 @@ function Fewatsu:update(force)
         self.scrollbarShownTimer:start()
 
         self:update(true)
-      end, function(item)
+      end, function(item) -- something to do with this function being called causes a nil timer error.. maybe find better solution to error later on?
         dbg.log("closed menu completely", "menu")
 
         pd.timer.performAfterDelay(0, function()
@@ -1108,48 +1118,70 @@ end
 ---
 ---All `playdate.menu` items will also be cleared. To restore these, set a callback function using `:setCallback()` containing instructions to restore the previous menu items.
 ---
+---`callback` can be provided if you would like an action to be performed after Fewatsu's splash screen has finished displaying (or, if you have it disabled, immediately after Fewatsu finishes its `show()` function).
+---
+---@param callback function
 ---@return nil
-function Fewatsu:show()
+function Fewatsu:show(callback)
   self.offset = 0
-
-  self.shown = true
 
   self.originalRefreshRate = pd.display.getRefreshRate()
   self.originalDisplayInvertedMode = pd.display.getInverted()
-  self.allowInput = true
 
   pd.display.setRefreshRate(50)
-  pd.display.setInverted(false)
+  pd.inputHandlers.push(BLANK_INPUT_HANDLERS, true)
 
   playdateMenu:removeAllMenuItems()
 
-  playdateMenu:addMenuItem("about...", function()
-    if fewatsu_menu.isOpen then
-      fewatsu_menu.close(true)
+  local function finishShow()
+    playdateMenu:addMenuItem("about...", function()
+      if fewatsu_menu.isOpen then
+        fewatsu_menu.close(true)
+      end
+
+      if not fewatsu_imageViewer.isOpen then
+        self:loadFile(FEWATSU_LIB_PATH .. "/fewatsu/pages/about.json")
+      end
+    end)
+
+    playdateMenu:addMenuItem("help...", function()
+      if fewatsu_menu.isOpen then
+        fewatsu_menu.close(true)
+      end
+
+      if not fewatsu_imageViewer.isOpen then
+        self:loadFile(FEWATSU_LIB_PATH .. "/fewatsu/pages/help.json")
+      end
+    end)
+    
+    self.inputDelayTimer = pd.timer.new(10)
+
+    self.oldUpdate = pd.update
+    pd.update = function() self.update(self) end
+
+    if self.playBGM and self.backgroundMusic ~= nil then
+      self.backgroundMusic:setVolume(0, 0)
+      self.backgroundMusic:setVolume(self.backgroundMusicVolume, self.backgroundMusicVolume, self.backgroundMusicFadeTime)
+      self.backgroundMusic:play(0)
     end
-    self:loadFile(FEWATSU_LIB_PATH .. "/fewatsu/pages/about.json")
-  end)
 
-  playdateMenu:addMenuItem("help...", function()
-    if fewatsu_menu.isOpen then
-      fewatsu_menu.close(true)
+    self.shown = true
+    self.allowInput = true
+
+    pd.display.setInverted(false)
+
+    self:update(true)
+
+    if callback then
+      callback(self)
     end
-    self:loadFile(FEWATSU_LIB_PATH .. "/fewatsu/pages/help.json")
-  end)
-  
-  self.inputDelayTimer = pd.timer.new(10)
-
-  pd.inputHandlers.push(BLANK_INPUT_HANDLERS, true)
-  self.oldUpdate = pd.update
-  pd.update = function() self.update(self) end
-
-  if self.playBGM and self.backgroundMusic ~= nil then
-    self.backgroundMusic:setVolume(0, 0)
-    self.backgroundMusic:setVolume(self.backgroundMusicVolume, self.backgroundMusicVolume, self.backgroundMusicFadeTime)
-    self.backgroundMusic:play(0)
   end
 
-  self:update(true)
+  if self.showSplash then
+    fewatsu_splash.open(self.splashText, self.splashFont, finishShow)
+  else
+    finishShow()
+  end
 end
 
 ---Hides Fewatsu, restoring the original `playdate.update()` function and input handlers.
@@ -1642,6 +1674,31 @@ function Fewatsu:registerCustomElement(name, data)
   self.customElements[name] = data
 end
 
--- function Fewatsu:destroy() -- TODO: function that sets everything in this fewatsu instance to nil
---   self = nil
--- end
+---Set if a splash screen should be displayed when `:show()` is called.
+---
+---Defaults to `true`.
+---
+---@param show boolean
+function Fewatsu:setShowSplash(show)
+  self.showSplash = show
+end
+
+---Sets the splash screen text.
+---
+---Requires that `:setShowSplash()` has been set to true.
+---
+---Defaults to `Fewatsu`.
+---
+---@param text string
+function Fewatsu:setSplashText(text)
+  self.splashText = text
+end
+
+---Sets the splash screen font.
+---
+---Requires that `:setShowSplash()` has been set to true.
+---
+---@param font playdate.graphics.font
+function Fewatsu:setSplashFont(font)
+  self.splashFont = font
+end

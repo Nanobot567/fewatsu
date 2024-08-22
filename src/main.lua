@@ -52,8 +52,9 @@ function pd.update()
 end
 
 function pd.AButtonDown()
-  fewatsu:show()
-  fewatsu:loadFile("manual.json")
+  fewatsu:show(function(fw)
+    fw:loadFile("manual.json")
+  end)
 end
 
 function pd.BButtonDown()
