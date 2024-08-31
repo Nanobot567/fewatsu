@@ -2,7 +2,7 @@
 # be sure to cd into tools/ first!
 
 markdownFile = open("../GENERATED_DOCS.md", "w+")
-markdownFile.write("# fewatsu documentation\n\n## Fewatsu\n\n")
+markdownFile.write("# fewatsu api\n\n## Fewatsu\n\n")
 
 with open("../src/lib/fewatsu.lua") as f:
     content = f.read()
@@ -63,14 +63,4 @@ for functionName, functionMeta in functions.items():
     ```\n"""
     )
 
-    # markdownFile.write("## " + line.lstrip("function ") + "\n")
-
     markdownFile.write("\n".join(functionMeta["description"]) + "\n")
-
-    # markdownFile.write("\n\n")
-
-    # for param in functionMeta["params"]:
-    #     print(f"param {param["name"]}: {param["type"]}")
-
-    # for ret in functionMeta["return"]:
-    #     print(f"returns a {ret}.")

@@ -1,3 +1,5 @@
 # fewatsu
 
-an on-device manual library for playdate
+an electronic manual library for playdate
+
+

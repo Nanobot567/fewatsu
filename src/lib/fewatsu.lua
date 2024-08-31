@@ -146,6 +146,7 @@ function Fewatsu:init(workingDirectory)
   self.showSplash = true
   self.splashText = "Fewatsu"
   self.splashFont = gfx.font.new(FEWATSU_LIB_PATH .. "fewatsu/fnt/Asheville-Sans-24-Light")
+  self.splashBackground = nil
 
   self.backgroundMusic = pd.sound.fileplayer.new(FEWATSU_LIB_PATH .. "fewatsu/snd/bgm")
   self.backgroundMusicVolume = 0.1
@@ -166,8 +167,8 @@ function Fewatsu:init(workingDirectory)
   self.scrollbarLockedObject = nil
 
   self.scrollbarTimerEndedCallback = function()
-    if self.documentImage.height >= 240 and self.scrollbarAnimator:currentValue() == self.scrollbarBackgroundImage.width then
-      self.scrollbarAnimator = gfx.animator.new(100, self.scrollbarBackgroundImage.width, 0)
+    if self.documentImage.height >= 240 and self.scrollbarAnimator:currentValue() == self.scrollbarBackgroundImage.width / 2 then
+      self.scrollbarAnimator = gfx.animator.new(100, self.scrollbarBackgroundImage.width / 2, 0)
       self.scrollbarLockedObject = self.selectedObject
       pd.timer.performAfterDelay(90, function()
         self:update(true)
@@ -216,6 +217,7 @@ function Fewatsu:load(data)
 
   self:clearAnimatedImageCache()
 
+  self.scrollbarShownTimer:start()
   self.scrollbarShownTimer:remove()
   self.scrollbarAnimator = gfx.animator.new(0, 0, 0)
   self.scrollbarShownTimer = pd.timer.new(0)
@@ -362,7 +364,7 @@ function Fewatsu:load(data)
         yscale = element["yscale"]
       end
 
-      imgpath = getExistentPath(self.cwd, imgpath, {".pdi", ".pdt"})
+      imgpath = getExistentPath(self.cwd, imgpath, { ".pdi", ".pdt" })
 
       if imgpath ~= nil then
         if string.sub(imgpath, #imgpath - 3) == ".pdi" then
@@ -372,7 +374,8 @@ function Fewatsu:load(data)
             fewatsu_loadScreen.step("loading animated image, please wait...")
           end
 
-          self.animatedImages[currentY] = AnimatedImage(imgpath, element["scale"], element["delay"], element["darkModeInvert"])
+          self.animatedImages[currentY] = AnimatedImage(imgpath, element["scale"], element["delay"],
+            element["darkModeInvert"])
 
           img = self.animatedImages[currentY]:getCurrentFrame()
         end
@@ -536,7 +539,6 @@ function Fewatsu:load(data)
       -- if element["height"] == nil then
       --   element["height"] = table.remove(textHeights, 1)
       -- end
-
     elseif elemType == "image" then
       if element["x"] == nil then
         element["x"] = FEWATSU_X
@@ -605,7 +607,7 @@ function Fewatsu:load(data)
         yscale = scale
       end
 
-      imgpath = getExistentPath(self.cwd, imgpath, {".pdi", ".pdt"})
+      imgpath = getExistentPath(self.cwd, imgpath, { ".pdi", ".pdt" })
 
       if imgpath ~= nil then
         if string.sub(imgpath, #imgpath - 3) == ".pdi" then
@@ -635,6 +637,10 @@ function Fewatsu:load(data)
       img:draw(element["x"], currentElementY)
 
       gfx.setImageDrawMode(oldDrawMode)
+
+      if imgpath == nil then
+        imgpath = ""
+      end
 
       table.insert(self.imgXs, element["x"])
       table.insert(self.imgYs, currentElementY)
@@ -853,13 +859,14 @@ function Fewatsu:update(force)
         self.scrollbarShownTimer:start()
 
         self:update(true)
-      end, function(item) -- something to do with this function being called causes a nil timer error.. maybe find better solution to error later on?
-        dbg.log("closed menu completely", "menu")
+      end,
+        function(item)    -- something to do with this function being called causes a nil timer error.. maybe find better solution to error later on?
+          dbg.log("closed menu completely", "menu")
 
-        pd.timer.performAfterDelay(0, function()
-          self:update(true)
+          pd.timer.performAfterDelay(0, function()
+            self:update(true)
+          end)
         end)
-      end)
     end
   end
 
@@ -898,14 +905,15 @@ function Fewatsu:update(force)
             gfx.setColor(gfx.kColorWhite)
           end
 
-          gfx.fillRect(0, self.customElementYs[elementI] - self.offset, 400, v["heightCalculationFunction"](element) - v["padding"])
+          gfx.fillRect(0, self.customElementYs[elementI] - self.offset, 400,
+            v["heightCalculationFunction"](element) - v["padding"])
 
           if self.darkMode then
             gfx.setColor(gfx.kColorWhite)
           else
             gfx.setColor(gfx.kColorBlack)
           end
-        
+
           gfx.setImageDrawMode(gfx.kDrawModeCopy)
 
           v["drawFunction"](self.customElementYs[elementI] - self.offset, element)
@@ -926,10 +934,10 @@ function Fewatsu:update(force)
     dbg.log("grabbing objects", "objects")
 
     for i, v in ipairs(self.linkYs) do
-      dbg.log({"self.offset: ", self.offset, " link: ", v}, "y vals")
+      dbg.log({ "self.offset: ", self.offset, " link: ", v }, "y vals")
 
       if v - self.offset < 120 and v - self.offset > -120 then
-        dbg.log({"passed selectable calculation"}, "objects")
+        dbg.log({ "passed selectable calculation" }, "objects")
         table.insert(selectableObjects, {
           type = "link",
           i = i,
@@ -939,7 +947,7 @@ function Fewatsu:update(force)
       end
 
       if v - self.offset < 220 and v - self.offset > -20 then
-        dbg.log({"passed visible calculation"}, "objects")
+        dbg.log({ "passed visible calculation" }, "objects")
         table.insert(visibleObjects, {
           type = "link",
           i = i,
@@ -951,12 +959,17 @@ function Fewatsu:update(force)
 
     for i, v in ipairs(self.imgYs) do
       if not table.indexOfElement(table.getKeys(self.animatedImages), v) then
+        local p = self.imgPaths[i]
+        if p == "" then
+          p = nil
+        end
+
         if v - self.offset < 129 and v - self.offset > -120 then
           table.insert(selectableObjects, {
             type = "image",
             i = i,
             y = v,
-            path = self.imgPaths[i],
+            path = p,
             caption = self.imgCaptions[i]
           })
         end
@@ -966,7 +979,7 @@ function Fewatsu:update(force)
             type = "image",
             i = i,
             y = v,
-            path = self.imgPaths[i],
+            path = p,
             caption = self.imgCaptions[i]
           })
         end
@@ -987,7 +1000,7 @@ function Fewatsu:update(force)
 
     dbg.log("checking for selectable objects", "objects")
 
-    dbg.log({"offset: ", self.offset, " doc height: ", self.documentImage.height})
+    dbg.log({ "offset: ", self.offset, " doc height: ", self.documentImage.height })
 
     if #selectableObjects ~= 0 then
       if pd.buttonJustPressed("left") and self.allowInput then
@@ -1073,7 +1086,7 @@ function Fewatsu:update(force)
 
     if oldOffset ~= self.offset and math.abs(self.offset - oldOffset) > 3 then
       if self.scrollbarShownTimer.timeLeft == 0 then
-        self.scrollbarAnimator = gfx.animator.new(100, 0, self.scrollbarBackgroundImage.width)
+        self.scrollbarAnimator = gfx.animator.new(100, 0, self.scrollbarBackgroundImage.width / 2)
       end
 
       self.scrollbarShownTimer:remove()
@@ -1082,8 +1095,8 @@ function Fewatsu:update(force)
   end
 
   if self.documentImage.height > 240 and self.scrollbarAnimator:currentValue() ~= 0 then
-    self.scrollbarBackgroundImage:draw(400 - self.scrollbarAnimator:currentValue(), 0)
-    self.scrollbarSmallImage:draw(400 - self.scrollbarAnimator:currentValue(), scrollbarY)
+    self.scrollbarBackgroundImage:draw(400 - self.scrollbarAnimator:currentValue() * 2, 0)
+    self.scrollbarSmallImage:draw(400 - self.scrollbarAnimator:currentValue() * 2, scrollbarY)
   end
 
   if self.postUpdate then
@@ -1125,6 +1138,11 @@ end
 function Fewatsu:show(callback)
   self.offset = 0
 
+  self.scrollbarAnimator = gfx.animator.new(0, 0, 0)
+  self.scrollbarShownTimer:start()
+  self.scrollbarShownTimer = pd.timer.new(0)
+  self.scrollbarLockedObject = nil
+
   self.originalRefreshRate = pd.display.getRefreshRate()
   self.originalDisplayInvertedMode = pd.display.getInverted()
 
@@ -1153,7 +1171,7 @@ function Fewatsu:show(callback)
         self:loadFile(FEWATSU_LIB_PATH .. "/fewatsu/pages/help.json")
       end
     end)
-    
+
     self.inputDelayTimer = pd.timer.new(10)
 
     self.oldUpdate = pd.update
@@ -1161,7 +1179,8 @@ function Fewatsu:show(callback)
 
     if self.playBGM and self.backgroundMusic ~= nil then
       self.backgroundMusic:setVolume(0, 0)
-      self.backgroundMusic:setVolume(self.backgroundMusicVolume, self.backgroundMusicVolume, self.backgroundMusicFadeTime)
+      self.backgroundMusic:setVolume(self.backgroundMusicVolume, self.backgroundMusicVolume, self
+      .backgroundMusicFadeTime)
       self.backgroundMusic:play(0)
     end
 
@@ -1178,7 +1197,8 @@ function Fewatsu:show(callback)
   end
 
   if self.showSplash then
-    fewatsu_splash.open(self.splashText, self.splashFont, finishShow)
+    self:update(true)
+    fewatsu_splash.open(self.splashText, self.splashFont, self.splashBackground, finishShow)
   else
     finishShow()
   end
@@ -1701,4 +1721,17 @@ end
 ---@param font playdate.graphics.font
 function Fewatsu:setSplashFont(font)
   self.splashFont = font
+end
+
+---Sets the splash screen background.
+---
+---Requires that `:setShowSplash()` has been set to true.
+---
+---By default, shows the latest Fewatsu frame.
+---
+---`bg` image size must be 400 x 240 pixels.
+---
+---@param bg playdate.graphics.image
+function Fewatsu:setSplashBackground(bg)
+  self.splashBackground = bg
 end
