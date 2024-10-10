@@ -3,6 +3,7 @@
 <details>
 <summary>Table of Contents</summary>
 <br>
+
 [addMenuItem](#addMenuItem)
 
 [clearAnimatedImageCache](#clearAnimatedImageCache)

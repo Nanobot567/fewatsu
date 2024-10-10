@@ -47,7 +47,7 @@ functions = dict(sorted(functions.items()))
 
 markdownFile.write("""<details>
 <summary>Table of Contents</summary>
-<br>\n""")
+<br>\n\n""")
 
 for functionName, functionMeta in functions.items():
     functionName = functionName.split(":")[1]
