@@ -32,7 +32,7 @@ By default, Fewatsu's current working directory is set to `manual/`, but it can 
 
 `fewatsu:setCurrentWorkingDirectory({FOLDER_NAME_OR_PATH})`
 
-Then place all of your Fewatsu documents in this directory in your source code.
+Then place all of your Fewatsu documents in the directory in your source code.
 
 ```
     Source/
@@ -61,4 +61,4 @@ Fewatsu will then replace your pushed input handlers, `playdate.update()` functi
 
 `fewatsu:setCallback({CALLBACK_FUNCTION})`
 
-That's pretty much everything regarding the basics! If you're still confused, I recommend checking out the documentation and example (which can be found in this repository).
+That's pretty much everything regarding the basics! If you're still confused, I recommend checking out the [API documentation](DOCUMENTATION.md) and example (which can be found in this repository).

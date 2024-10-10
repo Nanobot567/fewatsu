@@ -2,7 +2,7 @@
 # be sure to cd into tools/ first!
 
 markdownFile = open("../DOCUMENTATION.md", "w+")
-markdownFile.write("# fewatsu api\n\n## Fewatsu\n\n")
+markdownFile.write("# fewatsu api\n\n")
 
 with open("../src/lib/fewatsu.lua") as f:
     content = f.read()
@@ -45,6 +45,17 @@ for line in content.split("\n"):
 
 functions = dict(sorted(functions.items()))
 
+markdownFile.write("""<details>
+<summary>Table of Contents</summary>
+<br>\n""")
+
+for functionName, functionMeta in functions.items():
+    functionName = functionName.split(":")[1]
+
+    markdownFile.write(f"[{functionName}](#{functionName})\n\n")
+
+markdownFile.write("</details>\n\n## Fewatsu\n")
+
 for functionName, functionMeta in functions.items():
     markdownFile.write("### " + functionName.split(":")[1] + "\n")
 
@@ -60,7 +71,7 @@ for functionName, functionMeta in functions.items():
         f"""```lua
     (method) {functionName}({", ".join(paramsList)})
     -> {", ".join(functionMeta["return"])}
-    ```\n"""
+```\n"""
     )
 
     markdownFile.write("\n".join(functionMeta["description"]) + "\n")
