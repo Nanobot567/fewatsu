@@ -1,7 +1,7 @@
 # builds documentation as a markdown file from src/lib/fewatsu.lua
 # be sure to cd into tools/ first!
 
-markdownFile = open("../GENERATED_DOCS.md", "w+")
+markdownFile = open("../DOCUMENTATION.md", "w+")
 markdownFile.write("# fewatsu api\n\n## Fewatsu\n\n")
 
 with open("../src/lib/fewatsu.lua") as f:

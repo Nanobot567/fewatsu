@@ -38,3 +38,9 @@ release:
   just build
   -rm fewatsu-demo.pdx.zip
   zip -rq fewatsu-demo.pdx.zip fewatsu-demo.pdx
+
+  -rm -rf fewatsu.zip
+  mkdir -p fewatsu-lib
+  cp src/lib/* fewatsu-lib/ -r
+  cd fewatsu-lib && zip -rq ../fewatsu-lib.zip *
+  -rm -rf fewatsu-lib/

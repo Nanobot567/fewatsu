@@ -6,6 +6,8 @@ local pd <const> = playdate
 local gfx <const> = playdate.graphics
 
 local darkmode = false
+local splash = true
+local loadingScreen = true
 
 local sineWavePhase = 0
 
@@ -49,6 +51,8 @@ function pd.update()
   gfx.clear()
   gfx.drawText("Press A to start Fewatsu.", 0, 1)
   gfx.drawText("Dark mode: " .. tostring(darkmode) .. " (press B to toggle)", 0, 40)
+  gfx.drawText("Splash screen: " .. tostring(splash) .. " (press up to toggle)", 0, 60)
+  gfx.drawText("Loading screen: " .. tostring(loadingScreen) .. " (press down to toggle)", 0, 80)
 end
 
 function pd.AButtonDown()
@@ -60,4 +64,14 @@ end
 function pd.BButtonDown()
   darkmode = not darkmode
   fewatsu:setDarkMode(darkmode)
+end
+
+function pd.upButtonDown()
+  splash = not splash
+  fewatsu:setShowSplash(splash)
+end
+
+function pd.downButtonDown()
+  loadingScreen = not loadingScreen
+  fewatsu:setEnableLoadingScreen(loadingScreen)
 end

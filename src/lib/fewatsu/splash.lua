@@ -53,6 +53,7 @@ function spl.open(text, font, bg, callback)
 
   pd.update = spl.update
   
+  spl.startupSound:setVolume(0.4, 0.4)
   spl.startupSound:play()
 end
 

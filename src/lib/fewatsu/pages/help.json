@@ -5,15 +5,10 @@
       "type": "title",
       "text": "Fewatsu Help"
     },
-    {
-      "type": "heading",
-      "text": "Table of Contents"
-    },
-    {
-      "type": "heading",
-      "text": "Fewatsu Navigation"
-    },
     "Pages in Fewatsu are navigated using up [[up]], down [[down]], and the crank [[crank]].",
-    "A side menu, which usually contains more important pages, is accessible using [[b]]."
+    "To select links and images in a page, use right [[right]] and left [[left]]. You'll know if an element is selected when it has a border around it!",
+    "Selected links can be followed and selected images can be magnified with [[a]].",
+    "A side menu which usually contains more important pages is accessible using [[b]].",
+    "To exit Fewatsu, enter the side menu with [[b]] and select the *Exit...* option."
   ]
 }

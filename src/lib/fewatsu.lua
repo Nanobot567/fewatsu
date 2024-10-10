@@ -148,11 +148,12 @@ function Fewatsu:init(workingDirectory)
   self.splashFont = gfx.font.new(FEWATSU_LIB_PATH .. "fewatsu/fnt/Asheville-Sans-24-Light")
   self.splashBackground = nil
 
-  self.backgroundMusic = pd.sound.fileplayer.new(FEWATSU_LIB_PATH .. "fewatsu/snd/bgm")
-  self.backgroundMusicVolume = 0.1
-  self.backgroundMusicFadeTime = 1
   self.playBGM = true
+  self.backgroundMusic = pd.sound.fileplayer.new(FEWATSU_LIB_PATH .. "fewatsu/snd/bgm")
+  self.backgroundMusicVolume = 0.2
+  self.backgroundMusicFadeTime = 1
 
+  self.playSFX = true
   self.soundClick = pd.sound.sampleplayer.new(FEWATSU_LIB_PATH .. "fewatsu/snd/click")
   self.soundSelect = pd.sound.sampleplayer.new(FEWATSU_LIB_PATH .. "fewatsu/snd/select")
   self.soundMenuOpen = pd.sound.sampleplayer.new(FEWATSU_LIB_PATH .. "fewatsu/snd/menu_open")
@@ -735,7 +736,9 @@ function Fewatsu:update(force)
       dbg.log("A", "button")
 
       if self.selectedObject ~= nil and self.selectedObject ~= 0 then
-        self.soundClick:play()
+        if self.playSFX then
+          self.soundClick:play()
+        end
 
         local obj = self.selectedObject
 
@@ -1172,6 +1175,38 @@ function Fewatsu:show(callback)
       end
     end)
 
+    local audioText = "bgm + sfx"
+
+    if self.playBGM == false and self.playSFX == false then
+      audioText = "off"
+    elseif self.playBGM == false and self.playSFX then
+      audioText = "sfx"
+    elseif self.playBGM and self.playSFX == false then
+      audioText = "bgm"
+    end
+
+    playdateMenu:addOptionsMenuItem("audio", {"bgm + sfx", "bgm", "sfx", "off"}, audioText, function(out)
+      if out == "bgm + sfx" then
+        self.playBGM = true
+        self.playSFX = true
+      elseif out == "bgm" then
+        self.playBGM = true
+        self.playSFX = false
+      elseif out == "sfx" then
+        self.playBGM = false
+        self.playSFX = true
+      elseif out == "off" then
+        self.playBGM = false
+        self.playSFX = false
+      end
+      
+      if not self.playBGM then
+        self.backgroundMusic:stop()
+      elseif self.playBGM and self.backgroundMusic ~= nil then
+        self.backgroundMusic:play(0)
+      end
+    end)
+
     self.inputDelayTimer = pd.timer.new(10)
 
     self.oldUpdate = pd.update
@@ -1474,6 +1509,15 @@ function Fewatsu:setDarkMode(mode)
   self.darkMode = mode
 end
 
+---Sets if sound effects should play on user interaction (A button press, B button press, crank, etc)
+---
+---Defaults to `true`.
+---
+---@param status boolean
+function Fewatsu:setEnableSFX(status)
+  self.playSFX = status
+end
+
 ---Sets the sound that will be played when the A button is pressed.
 ---
 ---@param sound playdate.sound.sampleplayer
@@ -1515,7 +1559,7 @@ end
 
 ---Sets the background music volume.
 ---
----Defaults to `0.1`.
+---Defaults to `0.2`.
 ---
 ---@param volume number
 function Fewatsu:setBGMVolume(volume)

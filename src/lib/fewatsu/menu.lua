@@ -62,6 +62,8 @@ function menu.open(fewatsuInstance, currentItem, options, closingCallback, callb
   menu.animating = false
   menu.isOpen = true
 
+  menu.playSounds = fewatsuInstance.playSFX
+
   menu.soundClick = fewatsuInstance.soundClick
   menu.soundSelect = fewatsuInstance.soundSelect
   menu.soundMenuOpen = fewatsuInstance.soundMenuOpen
@@ -78,7 +80,9 @@ function menu.open(fewatsuInstance, currentItem, options, closingCallback, callb
 
   menu.animator = gfx.animator.new(menu.easeTime, menu.width, 0, menu.easeFunc)
 
-  menu.soundMenuOpen:play()
+  if menu.playSounds then
+    menu.soundMenuOpen:play()
+  end
 end
 
 function menu.update()
@@ -86,7 +90,9 @@ function menu.update()
 
   if not menu.closing then
     if pd.buttonJustPressed("a") then
-      menu.soundClick:play()
+      if menu.playSounds then
+        menu.soundClick:play()
+      end
 
       menu.selectedItem = menuItemPaths[listview:getSelectedRow() - 1]
 
@@ -102,15 +108,21 @@ function menu.update()
     end
 
     if pd.buttonJustPressed("b") then
-      menu.soundMenuOpen:play(1, 1.1)
+      if menu.playSounds then
+        menu.soundMenuOpen:play(1, 1.1)
+      end
       menu.closeStage1()
     end
 
     if pd.buttonJustPressed("down") then
-      menu.soundSelect:play()
+      if menu.playSounds then
+        menu.soundSelect:play()
+      end
       listview:selectNextRow()
     elseif pd.buttonJustPressed("up") then
-      menu.soundSelect:play()
+      if menu.playSounds then
+        menu.soundSelect:play()
+      end
       if listview:getSelectedRow() > 2 then
         listview:selectPreviousRow()
       end
