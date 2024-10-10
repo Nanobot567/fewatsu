@@ -4,7 +4,7 @@ Hello! This is a basic tutorial to get you started with Fewatsu.
 
 ## generating / creating fewatsu documents
 
-It might be useful to actually have a document to display before you start implementing Fewatsu! To make one, you can either create one by hand (check out `FORMAT.md`), or you can try the experimental Markdown to Fewatsu converter in `/tools/md2fewatsu.py`.
+It might be useful to actually have a document to display before you start implementing Fewatsu! To make one, you can either create one by hand (check out [FORMAT.md](FORMAT.md)), or you can try the experimental Markdown to Fewatsu converter in `/tools/md2fewatsu.py`.
 
 ## importing fewatsu
 
