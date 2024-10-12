@@ -284,7 +284,7 @@ Defaults to `true`.
 ```
 Sets if a loading screen should be displayed on document load and Fewatsu is currently shown.
 
-Please note that this reduces load times.
+Please note that this increases load times when enabled.
 
 Defaults to `true`.
 
