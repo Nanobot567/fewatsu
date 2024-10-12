@@ -807,7 +807,7 @@ function Fewatsu:update(force)
         elseif obj["type"] == "image" then
           if obj["path"] ~= nil then
             fewatsu_imageViewer.open(gfx.image.new(obj["path"]), obj["caption"], function()
-              self.inputDelayTimer = pd.timer.new(10)
+              self.inputDelayTimer = pd.timer.new(20)
 
               self:update(true)
             end)
@@ -1617,14 +1617,14 @@ end
 ---
 ---By default, the menu will add all of the valid Fewatsu JSON files in the current working directory.
 ---
----To customize the menu manually, see `:addMenuItem()`, `:removeMenuItem()` and `:clearMenuItems()`.
+---To customize the menu manually, see `:addMenuItem()` and `:clearMenuItems()`. (auto add must be `false`)
 ---
 ---@param enable boolean
 function Fewatsu:setMenuAutoAdd(enable)
   self.menuAutoItemAdd = enable
 end
 
----Adds a page to the Fewatsu menu. `:setMenuAutoAdd()` must be `true`.
+---Adds a page to the Fewatsu menu. `:setMenuAutoAdd()` must be `false`.
 ---
 ---`path` can be either an absolute path to the file or the path from Fewatsu's current working directory. Looks for [path], then [path].json.
 ---
@@ -1651,6 +1651,13 @@ function Fewatsu:addMenuItem(path, displayName)
   else
     error("could not load file at " .. path)
   end
+end
+
+
+---Clears all side menu items. `:setMenuAutoAdd()` must be `false`.
+---
+function Fewatsu:clearMenuItems()
+  self.menuItems = {}
 end
 
 ---Sets if a loading screen should be displayed on document load and Fewatsu is currently shown.

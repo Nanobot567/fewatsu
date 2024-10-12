@@ -8,6 +8,8 @@
 
 [clearAnimatedImageCache](#clearAnimatedImageCache)
 
+[clearMenuItems](#clearMenuItems)
+
 [getCurrentWorkingDirectory](#getCurrentWorkingDirectory)
 
 [hide](#hide)
@@ -122,7 +124,7 @@
     (method) Fewatsu:addMenuItem(path: string, displayName?: string)
     -> nil
 ```
-Adds a page to the Fewatsu menu. `:setMenuAutoAdd()` must be `true`.
+Adds a page to the Fewatsu menu. `:setMenuAutoAdd()` must be `false`.
 
 `path` can be either an absolute path to the file or the path from Fewatsu's current working directory. Looks for [path], then [path].json.
 
@@ -134,6 +136,13 @@ Adds a page to the Fewatsu menu. `:setMenuAutoAdd()` must be `true`.
     -> nil
 ```
 Clears the Fewatsu animated image cache.
+
+### clearMenuItems
+```lua
+    (method) Fewatsu:clearMenuItems()
+    -> nil
+```
+Clears all side menu items. `:setMenuAutoAdd()` must be `false`.
 
 ### getCurrentWorkingDirectory
 ```lua
@@ -393,7 +402,7 @@ Enables or disables the automatic adding of pages to the Fewatsu menu.
 
 By default, the menu will add all of the valid Fewatsu JSON files in the current working directory.
 
-To customize the menu manually, see `:addMenuItem()`, `:removeMenuItem()` and `:clearMenuItems()`.
+To customize the menu manually, see `:addMenuItem()` and `:clearMenuItems()`. (auto add must be `false`)
 
 ### setMenuEaseDuration
 ```lua
