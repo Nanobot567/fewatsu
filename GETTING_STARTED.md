@@ -8,7 +8,7 @@ It might be useful to actually have a document to display before you start imple
 
 ## importing fewatsu
 
-1. Snag the latest release of Fewatsu from the [releases page](https://github.com/Nanobot567/fewatsu/releases/latest) and extract the zip file.
+1. Snag the latest release of Fewatsu from the [releases page](https://codeberg.org/Nanobot567/fewatsu/releases/latest) and extract the zip file.
 2. Navigate to your Playdate project's `Source` directory.
 3. Extract `fewatsu-lib.zip` to your project's libraries folder.
     - If you don't have one yet, I usually name my libraries folder `lib/` :P
