@@ -225,7 +225,7 @@ Defaults to `1` second.
 ```
 Sets the background music volume.
 
-Defaults to `0.2`.
+Defaults to `0.1`.
 
 ### setBoldFont
 ```lua
@@ -284,7 +284,7 @@ Defaults to `true`.
 ```
 Sets if a loading screen should be displayed on document load and Fewatsu is currently shown.
 
-Please note that this increases load times when enabled.
+Please note that this increases load times.
 
 Defaults to `true`.
 

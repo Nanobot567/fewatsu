@@ -10,11 +10,11 @@
       "type": "heading",
       "text": "Source code and Documentation"
     },
-    "Fewatsu's source code and documentation is available at *https://github.com/nanobot567/fewatsu*.",
+    "Fewatsu's source code and documentation is available at *https://codeberg.org/nanobot567/fewatsu*.",
     "Scan the QR code below to check it out!",
     {
       "type": "qr",
-      "data": "https://github.com/nanobot567/fewatsu/",
+      "data": "https://codeberg.org/nanobot567/fewatsu/",
       "alignment": "center"
     },
     {

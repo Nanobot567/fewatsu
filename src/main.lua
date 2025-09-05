@@ -39,6 +39,13 @@ local dynamicSineCustomElement = {
   drawEveryFrame = true
 }
 
+local function redraw()
+  gfx.clear()
+  gfx.drawText("Press A to start Fewatsu.", 0, 1)
+  gfx.drawText("Dark mode: " .. tostring(darkmode) .. " (press B to toggle)", 0, 40)
+  gfx.drawText("Splash screen: " .. tostring(splash) .. " (press up to toggle)", 0, 60)
+  gfx.drawText("Loading screen: " .. tostring(loadingScreen) .. " (press down to toggle)", 0, 80)
+end
 
 fewatsu = Fewatsu:init()
 -- EPIC EASE :fire:
@@ -46,13 +53,12 @@ fewatsu = Fewatsu:init()
 -- fewatsu:setScrollDuration(800)
 fewatsu:registerCustomElement("sine", sineCustomElement)
 fewatsu:registerCustomElement("dynamicSine", dynamicSineCustomElement)
+fewatsu:setCallback(redraw)
+
+redraw()
 
 function pd.update()
-  gfx.clear()
-  gfx.drawText("Press A to start Fewatsu.", 0, 1)
-  gfx.drawText("Dark mode: " .. tostring(darkmode) .. " (press B to toggle)", 0, 40)
-  gfx.drawText("Splash screen: " .. tostring(splash) .. " (press up to toggle)", 0, 60)
-  gfx.drawText("Loading screen: " .. tostring(loadingScreen) .. " (press down to toggle)", 0, 80)
+  
 end
 
 function pd.AButtonDown()
@@ -64,14 +70,17 @@ end
 function pd.BButtonDown()
   darkmode = not darkmode
   fewatsu:setDarkMode(darkmode)
+  redraw()
 end
 
 function pd.upButtonDown()
   splash = not splash
   fewatsu:setShowSplash(splash)
+  redraw()
 end
 
 function pd.downButtonDown()
   loadingScreen = not loadingScreen
   fewatsu:setEnableLoadingScreen(loadingScreen)
+  redraw()
 end

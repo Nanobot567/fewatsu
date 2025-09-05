@@ -18,7 +18,7 @@ function loader.init(fewatsuInstance)
 
   loader.currentStep = 1
 
-  loader.background = gfx.getWorkingImage():copy():fadedImage(0.2, gfx.image.kDitherTypeScreen)
+  loader.background = gfx.getDisplayImage():copy():fadedImage(0.2, gfx.image.kDitherTypeScreen)
 
   -- loader.background = gfx.image.new(400, 240, gfx.kColorBlack):fadedImage(0.5, gfx.image.kDitherTypeBayer4x4)
 
@@ -27,8 +27,10 @@ function loader.init(fewatsuInstance)
   pd.display.flush()
 end
 
+local origInvert, fontHeight, glyph
+
 function loader.step(text, percentage)
-  local origInvert = pd.display.getInverted()
+  origInvert = pd.display.getInverted()
 
   pd.display.setInverted(true)
 
@@ -38,8 +40,8 @@ function loader.step(text, percentage)
     loader.currentStep = 1
   end
 
-  local fontHeight = loader.font:getHeight()
-  local glyph = loader.font:getGlyph(loader.SPINNER_CHARS[loader.currentStep]):scaledImage(2)
+  fontHeight = loader.font:getHeight()
+  glyph = loader.font:getGlyph(loader.SPINNER_CHARS[loader.currentStep]):scaledImage(2)
 
   gfx.clear()
 

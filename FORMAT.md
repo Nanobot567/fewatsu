@@ -118,9 +118,29 @@ image element. the image provided can either be a still image, or animated image
 list element.
 
 - requires
-	- `"items"`: array of items (table of strings)
+	- `"items"`: array of items (see below for type information)
 - optional
 	- `"ordered"`: sets if the list should be ordered (1., 2., etc.) (boolean) (defaults to false)
+
+list items can either be a string or a table. if it's a table, then items inside will be treated like indented list items. for example:
+
+```json
+    items: [
+        "one",
+        "two",
+        ["two indented one", "two indented two"]
+    ]
+```
+
+results in:
+
+```
+- one
+- two
+  - two indented one
+  - two indented two
+```
+
 
 ### link
 link to another document, or a part of the current document.

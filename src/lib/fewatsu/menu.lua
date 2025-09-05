@@ -11,6 +11,8 @@ listview:setCellPadding(4, 4, 2, 2)
 local menuOptions
 local menuItemPaths
 
+local fewatsuInstance
+
 function listview:drawCell(section, row, column, selected, x, y, width, height)
   if selected then
     gfx.fillRoundRect(x, y, width, 20, 4)
@@ -29,7 +31,14 @@ menu.easeFunc = pd.easingFunctions.outExpo
 
 menu.width = 120
 
-function menu.open(fewatsuInstance, currentItem, options, closingCallback, callback) -- it's probably bad that i'm passing in self here.. but meh lol
+local oldFont
+
+function menu.open(fwInstance, currentItem, options, closingCallback, callback) -- it's probably bad that i'm passing in self here.. but meh lol
+  oldFont = gfx.getFont()
+  gfx.setFont(gfx.getSystemFont())
+
+  fewatsuInstance = fwInstance
+
   listview:removeHorizontalDividers()
   menuOptions = { "*" .. menu.titleItemText .. "*", menu.EXIT_ITEM_TEXT}
   menuItemPaths = {}
@@ -129,7 +138,7 @@ function menu.update()
     end
   end
 
-  if menu.animating or menu.closing or listview.needsDisplay then
+  if menu.animating or menu.closing or (listview.needsDisplay and menu.isOpen) then
     gfx.clear()
 
     menu.backgroundImage:draw(0, 0)
@@ -173,11 +182,13 @@ end
 function menu.close(noCallback)
   pd.update = menu.oldUpdate
   pd.inputHandlers.pop()
-
-  if menu.callback and not noCallback then
-    menu.callback()
-  end
-
   menu.isOpen = false
   menu.closing = false
+  menu.animating = false
+
+  gfx.setFont(oldFont)
+
+  if menu.callback and not noCallback then
+    menu.callback(menu.selectedItem)
+  end
 end

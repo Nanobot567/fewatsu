@@ -35,6 +35,7 @@
         "ordered",
         "list",
         "item 3",
+        ["subitem 1", "subitem 2", ["sub-subitem 1", "sub-subitem 2"]],
         "item 4"
       ]
     },
@@ -44,6 +45,7 @@
         "unordered",
         "list",
         "item 3",
+        ["subitem 1", "subitem 2", ["sub-subitem 1", "sub-subitem 2"]],
         "item 4"
       ]
     },

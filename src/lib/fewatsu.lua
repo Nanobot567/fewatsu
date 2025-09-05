@@ -1,4 +1,4 @@
--- fewatsu lib by nanobot567
+-- fewatsu lib by nanobot567, version 1.2!
 
 import "CoreLibs/animator"
 import "CoreLibs/object"
@@ -150,7 +150,7 @@ function Fewatsu:init(workingDirectory)
 
   self.playBGM = true
   self.backgroundMusic = pd.sound.fileplayer.new(FEWATSU_LIB_PATH .. "fewatsu/snd/bgm")
-  self.backgroundMusicVolume = 0.2
+  self.backgroundMusicVolume = 0.1
   self.backgroundMusicFadeTime = 1
 
   self.playSFX = true
@@ -168,7 +168,7 @@ function Fewatsu:init(workingDirectory)
   self.scrollbarLockedObject = nil
 
   self.scrollbarTimerEndedCallback = function()
-    if self.documentImage.height >= 240 and self.scrollbarAnimator:currentValue() == self.scrollbarBackgroundImage.width / 2 then
+    if self.documentImage.height >= 240 and self.scrollbarAnimator:currentValue() == self.scrollbarBackgroundImage.width / 2 and self.shown then
       self.scrollbarAnimator = gfx.animator.new(100, self.scrollbarBackgroundImage.width / 2, 0)
       self.scrollbarLockedObject = self.selectedObject
       pd.timer.performAfterDelay(90, function()
@@ -190,6 +190,7 @@ function Fewatsu:init(workingDirectory)
   self:setCurrentWorkingDirectory(workingDirectory)
 
   self:load(FEWATSU_DEFAULT_DATA)
+  self:update(true)
 
   return self
 end
@@ -200,6 +201,8 @@ end
 ---@return playdate.image
 function Fewatsu:load(data)
   self.allowInput = false
+
+  gfx.setFont(self.font)
 
   self.linkXs = {}
   self.linkYs = {}
@@ -274,9 +277,17 @@ function Fewatsu:load(data)
     end
 
     if element["items"] then
-      for itemI, item in ipairs(element["items"]) do
-        element["items"][itemI] = replaceIconCodes(item)
+      local function cycleThroughItems(l)
+        for itemI, item in ipairs(l) do
+          if type(item) == "table" then
+            cycleThroughItems(item)
+          else
+            l[itemI] = replaceIconCodes(item)
+          end
+        end
       end
+
+      cycleThroughItems(element["items"])
     end
 
     if elemType == "title" then
@@ -325,23 +336,32 @@ function Fewatsu:load(data)
       local temp = {}
       local text = ""
 
-      if element["ordered"] == true then
-        for listi, item in ipairs(element["items"]) do
-          table.insert(temp, "*" .. tostring(listi) .. ".* " .. item)
+      local function parseIndents(items, wantedIndent)
+        if wantedIndent == nil then
+          wantedIndent = 0
         end
-      else
-        for listi, item in ipairs(element["items"]) do
-          table.insert(temp, "*-* " .. item)
+
+        local orderedIndex = 0
+
+        for _, v in ipairs(items) do
+          if type(v) == "table" then
+            parseIndents(v, wantedIndent + 1)
+          else
+            orderedIndex = orderedIndex + 1
+            if element.ordered == true then
+              table.insert(temp, string.rep("  ", wantedIndent) .. "*" .. tostring(orderedIndex) .. ".* " .. v)
+            else
+              table.insert(temp, string.rep("  ", wantedIndent) .. "*-* " .. v)
+            end
+          end
         end
       end
 
+      parseIndents(element.items)
+
       text = table.concat(temp, "\n")
-
       table.insert(processedLists, text)
-
-      textw, texth = gfx.getTextSizeForMaxWidth(text,
-        FEWATSU_WIDTH - FEWATSU_LISTINDENT - (self.rightPadding + self.leftPadding))
-
+      textw, texth = gfx.getTextSizeForMaxWidth(text, FEWATSU_WIDTH - FEWATSU_LISTINDENT - (self.rightPadding + self.leftPadding))
       table.insert(textHeights, texth)
 
       currentY = currentY + texth + 10
@@ -493,16 +513,13 @@ function Fewatsu:load(data)
   gfx.setFont(self.boldFont, gfx.font.kVariantBold)
   gfx.setFont(self.italicFont, gfx.font.kVariantItalic)
 
-  local origColor = gfx.getColor()
   local color = gfx.kColorBlack
   local imageDrawMode = gfx.kDrawModeCopy
-  local altColor = gfx.kColorWhite
 
   gfx.clear(gfx.kColorWhite)
 
   if self.darkMode then
     color = gfx.kColorWhite
-    altColor = gfx.kColorBlack
     imageDrawMode = gfx.kDrawModeInverted
     gfx.clear(gfx.kColorBlack)
   end
@@ -697,6 +714,9 @@ end
 local scrollbarY = 0
 local selectableObjects = {}
 local visibleObjects = {}
+local oldOffset, crankChg, crankAchg
+
+local selected, passed, drawSelector
 
 ---Updates Fewatsu and draws it to the screen if needed.
 ---
@@ -706,7 +726,7 @@ local visibleObjects = {}
 ---
 ---@param force boolean
 function Fewatsu:update(force)
-  local oldOffset = self.offset
+  oldOffset = self.offset
   pd.timer.updateTimers()
 
   if self.preUpdate then
@@ -721,9 +741,9 @@ function Fewatsu:update(force)
         self.offset = self.offset - 10
       end
 
-      local chg, achg = pd.getCrankChange()
+      crankChg, _ = pd.getCrankChange()
 
-      self.offset = self.offset + math.round(chg)
+      self.offset = self.offset + math.round(crankChg)
 
       if self.offset < 0 then
         self.offset = 0
@@ -853,22 +873,28 @@ function Fewatsu:update(force)
       fewatsu_menu.open(self, menuItemIndex, menuOptions, function(item)
         dbg.log("got item " .. tostring(item), "menu")
 
-        if item == fewatsu_menu.EXIT_ITEM_TEXT then
-          self:hide()
-        elseif item ~= nil and item ~= self.path then
-          self:loadFile(item)
+        if item ~= fewatsu_menu.EXIT_ITEM_TEXT then
+          if item ~= nil and item ~= self.path then
+            self:loadFile(item)
+          end
+
+          self.scrollbarShownTimer:start()
+          self:update(true)
         end
-
-        self.scrollbarShownTimer:start()
-
-        self:update(true)
       end,
         function(item)    -- something to do with this function being called causes a nil timer error.. maybe find better solution to error later on?
           dbg.log("closed menu completely", "menu")
 
-          pd.timer.performAfterDelay(0, function()
-            self:update(true)
-          end)
+          if item == fewatsu_menu.EXIT_ITEM_TEXT then
+            self.scrollbarShownTimer:remove()
+            self.scrollbarAnimator = nil
+            pd.timer.updateTimers()
+            self:hide()
+          else
+            pd.timer.performAfterDelay(0, function ()
+              self:update(true)
+            end)
+          end
         end)
     end
   end
@@ -997,13 +1023,27 @@ function Fewatsu:update(force)
       return a["y"] < b["y"]
     end)
 
-    local selected
-    local passed = false -- better variable name for this lol
-    local drawSelector = false
+    passed = false -- better variable name for this lol
+    drawSelector = false
 
     dbg.log("checking for selectable objects", "objects")
 
     dbg.log({ "offset: ", self.offset, " doc height: ", self.documentImage.height })
+
+    if self.documentImage.height > 240 then
+      scrollbarY = (math.abs(1 - ((self.documentImage.height - self.offset - 240) / (self.documentImage.height - 240))) * (240 - self.scrollbarSmallImage.height))
+    else
+      scrollbarY = 0
+    end
+
+    if oldOffset ~= self.offset and math.abs(self.offset - oldOffset) > 3 then
+      if self.scrollbarShownTimer.timeLeft == 0 then
+        self.scrollbarAnimator = gfx.animator.new(100, 0, self.scrollbarBackgroundImage.width / 2)
+      end
+
+      self.scrollbarShownTimer:remove()
+      self.scrollbarShownTimer = pd.timer.new(self.scrollbarTimeout, self.scrollbarTimerEndedCallback)
+    end
 
     if #selectableObjects ~= 0 then
       if pd.buttonJustPressed("left") and self.allowInput then
@@ -1080,21 +1120,6 @@ function Fewatsu:update(force)
     elseif drawSelector and selected then
       self:_drawObjectSelector(selected)
     end
-
-    if self.documentImage.height > 240 then
-      scrollbarY = (math.abs(1 - ((self.documentImage.height - self.offset - 240) / (self.documentImage.height - 240))) * (240 - self.scrollbarSmallImage.height))
-    else
-      scrollbarY = 0
-    end
-
-    if oldOffset ~= self.offset and math.abs(self.offset - oldOffset) > 3 then
-      if self.scrollbarShownTimer.timeLeft == 0 then
-        self.scrollbarAnimator = gfx.animator.new(100, 0, self.scrollbarBackgroundImage.width / 2)
-      end
-
-      self.scrollbarShownTimer:remove()
-      self.scrollbarShownTimer = pd.timer.new(self.scrollbarTimeout, self.scrollbarTimerEndedCallback)
-    end
   end
 
   if self.documentImage.height > 240 and self.scrollbarAnimator:currentValue() ~= 0 then
@@ -1140,6 +1165,8 @@ end
 ---@return nil
 function Fewatsu:show(callback)
   self.offset = 0
+
+  self.originalFont = gfx.getFont()
 
   self.scrollbarAnimator = gfx.animator.new(0, 0, 0)
   self.scrollbarShownTimer:start()
@@ -1199,7 +1226,7 @@ function Fewatsu:show(callback)
         self.playBGM = false
         self.playSFX = false
       end
-      
+
       if not self.playBGM then
         self.backgroundMusic:stop()
       elseif self.playBGM and self.backgroundMusic ~= nil then
@@ -1210,7 +1237,7 @@ function Fewatsu:show(callback)
     self.inputDelayTimer = pd.timer.new(10)
 
     self.oldUpdate = pd.update
-    pd.update = function() self.update(self) end
+    pd.update = function(force) self.update(self, force) end
 
     if self.playBGM and self.backgroundMusic ~= nil then
       self.backgroundMusic:setVolume(0, 0)
@@ -1224,7 +1251,9 @@ function Fewatsu:show(callback)
 
     pd.display.setInverted(false)
 
-    self:update(true)
+    pd.timer.performAfterDelay(1, function ()
+      self:update(true)
+    end)
 
     if callback then
       callback(self)
@@ -1271,6 +1300,11 @@ function Fewatsu:hide(preserveCache)
 
   self.shown = false
   self.allowInput = false
+
+  self.scrollbarShownTimer:remove()
+  self.menuAnimator = nil
+
+  gfx.setFont(self.originalFont)
 
   if self.callback then
     self.callback()
@@ -1334,7 +1368,7 @@ end
 ---
 ---@param ms number
 function Fewatsu:setScrollDuration(ms)
-  self.animatorEaseTime = ms
+  self.animatorEaseTime = ms or 400
 end
 
 ---Sets a different easing function which will be used instead of the default when scrolling to a new manual page offset. Can be any `playdate.easingFunction`.
@@ -1343,7 +1377,7 @@ end
 ---
 ---@param func function
 function Fewatsu:setScrollEasingFunction(func)
-  self.animatorEaseFunction = func
+  self.animatorEaseFunction = func or pd.easingFunctions.outExpo
 end
 
 ---Sets the function to be called when Fewatsu has completed its `:hide()` function.
@@ -1422,7 +1456,7 @@ end
 ---
 ---@param title string
 function Fewatsu:setMenuTitle(title)
-  fewatsu_menu.titleItemText = title
+  fewatsu_menu.titleItemText = title or "Fewatsu"
 end
 
 ---Sets the menu width.
@@ -1431,7 +1465,7 @@ end
 ---
 ---@param width number
 function Fewatsu:setMenuWidth(width)
-  fewatsu_menu.width = width
+  fewatsu_menu.width = width or 120
 end
 
 ---Sets the time it takes for the menu to ease in.
@@ -1440,7 +1474,7 @@ end
 ---
 ---@param ms number
 function Fewatsu:setMenuEaseDuration(ms)
-  fewatsu_menu.easeTime = ms
+  fewatsu_menu.easeTime = ms or 350
 end
 
 ---Sets a different easing function which will be used instead of the default when animating the menu slide-in. Can be any `playdate.easingFunction`.
@@ -1449,7 +1483,7 @@ end
 ---
 ---@param func function
 function Fewatsu:setMenuEasingFunction(func)
-  fewatsu_menu.easeFunc = func
+  fewatsu_menu.easeFunc = func or pd.easingFunctions.outExpo
 end
 
 ---Sets the amount to pad both sides of the Fewatsu document.
@@ -1460,8 +1494,8 @@ end
 ---
 ---@param px number
 function Fewatsu:setPadding(px)
-  self.leftPadding = px
-  self.rightPadding = px
+  self.leftPadding = px or 4
+  self.rightPadding = px or 4
 end
 
 ---Sets the amount to pad the top of the Fewatsu document.
@@ -1470,7 +1504,7 @@ end
 ---
 ---@param px number
 function Fewatsu:setTopPadding(px)
-  self.topPadding = px
+  self.topPadding = px or 4
 end
 
 ---Sets the pixel amount to pad the left side of the Fewatsu viewing area.
@@ -1479,7 +1513,7 @@ end
 ---
 ---@param px number
 function Fewatsu:setLeftPadding(px)
-  self.leftPadding = px
+  self.leftPadding = px or 4
 end
 
 ---Sets the pixel amount to pad the right side of the Fewatsu viewing area.
@@ -1488,7 +1522,7 @@ end
 ---
 ---@param px number
 function Fewatsu:setRightPadding(px)
-  self.rightPadding = px
+  self.rightPadding = px or 4
 end
 
 ---Sets the pixel amount to pad the right and left side of quote boxes.
@@ -1497,7 +1531,7 @@ end
 ---
 ---@param px number
 function Fewatsu:setQuoteBoxPadding(px)
-  self.quoteBoxPadding = px
+  self.quoteBoxPadding = px or 30
 end
 
 ---Set if dark theme should be used. Doesn't apply to images, and is only applied on `:load()`.
@@ -1559,11 +1593,11 @@ end
 
 ---Sets the background music volume.
 ---
----Defaults to `0.2`.
+---Defaults to `0.1`.
 ---
 ---@param volume number
 function Fewatsu:setBGMVolume(volume)
-  self.backgroundMusicVolume = volume
+  self.backgroundMusicVolume = volume or 0.1
 end
 
 ---Sets the background music fade in/out time in seconds.
@@ -1572,7 +1606,7 @@ end
 ---
 ---@param fadetime number
 function Fewatsu:setBGMFade(fadetime)
-  self.backgroundMusicFadeTime = fadetime
+  self.backgroundMusicFadeTime = fadetime or 1
 end
 
 ---Sets if the scroll bar should be displayed when the user scrolls through the Fewatsu document.
@@ -1592,7 +1626,7 @@ end
 ---
 ---@param ms any
 function Fewatsu:setScrollBarTimeout(ms)
-  self.scrollbarTimeout = ms
+  self.scrollbarTimeout = ms or 750
 end
 
 ---Sets the image to use for the scroll bar.
@@ -1662,7 +1696,7 @@ end
 
 ---Sets if a loading screen should be displayed on document load and Fewatsu is currently shown.
 ---
----Please note that this increases load times when enabled.
+---Please note that this increases load times.
 ---
 ---Defaults to `true`.
 ---
@@ -1762,7 +1796,7 @@ end
 ---
 ---@param text string
 function Fewatsu:setSplashText(text)
-  self.splashText = text
+  self.splashText = text or "Fewatsu"
 end
 
 ---Sets the splash screen font.

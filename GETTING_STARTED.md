@@ -43,7 +43,7 @@ Then place all of your Fewatsu documents in the directory in your source code.
         |-- doc2.json
 ```
 
-Now, figure out when and where you'd like Fewatsu to be displayed. This could be after a button press, system menu item press, or a number of other things.
+Now, figure out when and where you'd like Fewatsu to be displayed. This could be after a button press, system menu item press, or a number of other actions.
 
 In the handler for this action, insert this line of code, where `DOCUMENT_FILENAME_OR_PATH` is a valid JSON file:
 
