@@ -6,7 +6,7 @@ an electronic manual library for playdate
 
 ## what exactly is fewatsu, anyway?
 
-`Fewatsu` is, at its core, a document parser and viewer inspired by the Nintendo 3DS' [E-manual feature](https://codeberg.org/Nanobot567/fewatsu/tree/main/assets/3ds).
+`Fewatsu` is, at its core, a document parser and viewer inspired by the Nintendo 3DS' [E-manual feature](https://codeberg.org/Nanobot567/fewatsu/src/branch/main/assets/3ds).
 
 It's meant to be extremely simple to set up and use, so pretty much anyone can implement it into their Playdate game!
 
