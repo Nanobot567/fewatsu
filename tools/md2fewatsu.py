@@ -19,7 +19,7 @@ fewatsuJSON = {
     "data": []
 }
 
-parser = argparse.ArgumentParser("md2fewatsu", "convert a markdown document to fewatsu JSON")
+parser = argparse.ArgumentParser("md2fewatsu", description="convert a markdown document to fewatsu JSON")
 parser.add_argument("markdown", help="markdown file", type=argparse.FileType())
 parser.add_argument("-t", "--title", default=None, help="set title of Fewatsu page")
 parser.add_argument("-o", "--output", default="output.json", help="write to file")
