@@ -10,65 +10,34 @@
 # - links ([text](page#section))
 # - plaintext (anything else)
 
+import argparse
 import json
+import pathlib
 import re
-import sys
-
-outputFile = "output.json"
 
 fewatsuJSON = {
     "data": []
 }
 
-if "--help" in sys.argv or "-h" in sys.argv or len(sys.argv) == 1:
-    print("usage: python3 md2fewatsu.py [OPTION]... markdown.md\nconvert a markdown document to fewatsu JSON.")
+parser = argparse.ArgumentParser("md2fewatsu", "convert a markdown document to fewatsu JSON")
+parser.add_argument("markdown", help="markdown file", type=argparse.FileType())
+parser.add_argument("-t", "--title", default=None, help="set title of Fewatsu page")
+parser.add_argument("-o", "--output", default="output.json", help="write to file")
+parser.add_argument("-p", "--pretty", default=False, action="store_true")
 
-    print("\narguments (these require a name afterwards):")
-    print("\t-t, --title    set title of Fewatsu page")
-    print("\t-o, --output   write to file\n")
-    quit()
+args = parser.parse_args()
 
-sys.argv.pop(0)
-
-index = 0
-
-while (index < len(sys.argv)):
-    a = sys.argv[index]
-    if a == "-t" or a == "--title":
-        try:
-            fewatsuJSON["title"] = sys.argv[index + 1]
-
-            sys.argv.pop(index)
-            sys.argv.pop(index)
-            index -= 2
-        except IndexError:
-            print("ERROR: -t requires that a name be provided!")
-            quit()
-    elif a == "-o" or a == "--output":
-        try:
-            outputFile = sys.argv[index + 1]
-
-            sys.argv.pop(index)
-
-            sys.argv.pop(index)
-            index -= 2
-        except IndexError:
-            print("ERROR: -o requires that a name be provided!")
-            quit()
-
-    index += 1
-
-try:
-    f = open(sys.argv[-1], "r")
-except FileNotFoundError:
-    print("ERROR: file " + sys.argv[-1] + " not found!")
-    quit()
-except IndexError:
-    print("ERROR: file name / path must be provided!")
-    quit()
+f = args.markdown
 
 lines = f.read().split("\n")
 f.close()
+
+outputFile = args.output
+
+if args.title:
+    fewatsuJSON["title"] = args.title
+else:
+    fewatsuJSON["title"] = pathlib.Path(args.markdown.name).stem
 
 lineIndex = 0
 
@@ -145,5 +114,8 @@ while lineIndex != len(lines):
 
 f = open(outputFile, "w+")
 
+indent = None
+if args.pretty:
+    indent = 2
 
-f.write(json.dumps(fewatsuJSON))
+f.write(json.dumps(fewatsuJSON, indent=indent))
