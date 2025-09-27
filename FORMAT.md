@@ -155,6 +155,14 @@ the `page` and `section` keys are case insensitive.
 
 `section` can also be set to `#top` or `#bottom` to jump to those places.
 
+### navbar
+shorthand element which groups two `link` elements together on the same line, one on the left and one on the right.
+
+- optional
+    - `"padding"`: additional padding to add to the bottom of the navbar (number) (defaults to `10`)
+    - `"left"`: left `link` element contents (object)
+    - `"right"`: right `link` element contents (object)
+
 ### quote
 quote box element, similar to HTML's `<blockquote>`.
 

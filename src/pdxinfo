@@ -2,5 +2,5 @@ name=fewatsu-demo
 author=nanobot567
 description=demo of fewatsu-lib
 bundleID=com.nano.fewatsudemo
-version=1.2
-buildNumber=2056
+version=1.3
+buildNumber=2075

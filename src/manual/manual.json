@@ -131,10 +131,16 @@
       "step": 2
     },
     {
-      "type": "link",
-      "text": "Page 2 >>",
-      "page": "page2",
-      "alignment": "right"
+      "type": "navbar",
+      "padding": 0,
+      "left": {
+        "text": "^ Top",
+        "section": "#top"
+      },
+      "right": {
+        "text": "Page 2 >>",
+        "page": "page2"
+      }
     }
   ]
 }

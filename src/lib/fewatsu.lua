@@ -1,4 +1,4 @@
--- fewatsu lib by nanobot567, version 1.2!
+-- fewatsu lib by nanobot567, version 1.3!
 
 import "CoreLibs/animator"
 import "CoreLibs/object"
@@ -439,6 +439,44 @@ function Fewatsu:load(data)
       table.insert(self.linkLocations, { element["page"], element["section"] })
 
       currentY = currentY + texth + 10
+    elseif elemType == "navbar" then
+      for i, v in ipairs({"left", "right"}) do -- blahhhhhhh
+        if element[v] then
+          textw, texth = gfx.getTextSizeForMaxWidth(element[v]["text"],
+            FEWATSU_WIDTH - (self.rightPadding + self.leftPadding), nil, self.linkFont)
+
+          table.insert(textHeights, texth)
+
+          local x = FEWATSU_X + self.leftPadding - 3
+
+          if v == "right" then
+            x = FEWATSU_WIDTH - textw - self.rightPadding - 3
+          end
+
+          table.insert(self.linkXs, x)
+          table.insert(self.linkYs, currentY - 2)
+          table.insert(self.linkWidths, textw + 6)
+          table.insert(self.linkHeights, texth + 2)
+
+          if element[v]["page"] then
+            element[v]["page"] = string.lower(element[v]["page"])
+          end
+
+          if element[v]["section"] then
+            element[v]["section"] = string.lower(element[v]["section"])
+          end
+
+          table.insert(self.linkLocations, { element[v]["page"], element[v]["section"] })
+        end
+      end
+
+      local pad = 10
+
+      if type(element["padding"]) == "number" then
+        pad = element["padding"]
+      end
+
+      currentY = currentY + texth + pad
     elseif elemType == "break" then
       if not element["linewidth"] then
         element["linewidth"] = 2
@@ -670,6 +708,18 @@ function Fewatsu:load(data)
       gfx.drawTextInRect(element["text"], element["x"], currentElementY, element["width"], table.remove(textHeights, 1),
         nil,
         nil, element["alignment"], self.linkFont)
+    elseif elemType == "navbar" then
+      if element["left"] then
+        gfx.drawTextInRect(element["left"]["text"], self.leftPadding, currentElementY, FEWATSU_WIDTH - self.rightPadding - self.leftPadding, table.remove(textHeights, 1),
+          nil,
+          nil, kTextAlignment.left, self.linkFont)
+      end
+
+      if element["right"] then
+        gfx.drawTextInRect(element["right"]["text"], self.leftPadding, currentElementY, FEWATSU_WIDTH - self.rightPadding - self.leftPadding, table.remove(textHeights, 1),
+          nil,
+          nil, kTextAlignment.right, self.linkFont)
+      end
     elseif elemType == "break" then
       if element["visible"] ~= false then
         if not element["linewidth"] then
@@ -965,7 +1015,7 @@ function Fewatsu:update(force)
     for i, v in ipairs(self.linkYs) do
       dbg.log({ "self.offset: ", self.offset, " link: ", v }, "y vals")
 
-      if v - self.offset < 120 and v - self.offset > -120 then
+      if v - self.offset < 220 and v - self.offset > -20 then
         dbg.log({ "passed selectable calculation" }, "objects")
         table.insert(selectableObjects, {
           type = "link",
