@@ -1,4 +1,4 @@
--- fewatsu lib by nanobot567, version 1.3!
+-- fewatsu lib by nanobot567, version 1.3.1!
 
 import "CoreLibs/animator"
 import "CoreLibs/object"
@@ -963,7 +963,7 @@ function Fewatsu:update(force)
   end
 
   for k, v in pairs(self.animatedImages) do
-    if k - self.offset < v:getCurrentFrame().height and k - self.offset > -v:getCurrentFrame().height then
+    if k - self.offset < 240 and k - self.offset > 0 then
       dbg.log("drawing animated image at " .. k, "animated image")
       v:getCurrentFrame(self.darkMode):draw(0, k - self.offset)
     end
